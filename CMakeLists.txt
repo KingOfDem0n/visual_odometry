@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
 	sensor_msgs
+	nav_msgs
   message_generation
 )
 
@@ -58,6 +59,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   getImage.srv
+	getRealSenseOdom.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -72,6 +74,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
 	sensor_msgs
+	nav_msgs
 	# Or other packages containing msgs
 )
 

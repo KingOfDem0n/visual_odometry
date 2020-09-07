@@ -1,0 +1,9 @@
+<launch>
+
+  <include file="$(find turtlebot_bringup)/launch/minimal.launch"/>
+  <include file="$(find turtlebot_bringup)/launch/3dsensor.launch"/>
+  <include file="$(find realsense2_camera)/launch/rs_t265.launch"/>
+  <node name="getImage_server" pkg="visual_odometry" type="getImage_Server.py"/>
+  <node name="getRealSenseOdom_server" pkg="visual_odometry" type="getRealSenseOdom_Server.py"/>
+
+</launch>

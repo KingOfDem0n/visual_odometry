@@ -133,4 +133,4 @@ class Stereo(object):
 
         self.saveNewKeyPoints()
 
-        return R, t, curFrame
+        return R.T, t, curFrame

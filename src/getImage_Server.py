@@ -7,7 +7,6 @@ import rospy
 from sensor_msgs.msg import Image, PointCloud2
 
 def callback_server(req):
-    # print("Justice dispense!")
     response = getImageResponse()
     response.rgb = image
     response.point = point
@@ -16,17 +15,17 @@ def callback_server(req):
 
 def callback_image(msg):
     global image
-    # print("Something")
+
     image = msg
 
 def callback_point(msg):
     global point
-    # print("Something")
+
     point = msg
 
 def callback_depth(msg):
     global depth
-    # print("Something")
+
     depth = msg
 
 if __name__ == "__main__":
