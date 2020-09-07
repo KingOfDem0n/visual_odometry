@@ -48,8 +48,8 @@ def forward(x, stereo, pub):
         cur_t = start_R.T.dot(np.array([[current_Pose.linear.x],
                                         [current_Pose.linear.y],
                                         [current_Pose.linear.z]]))
-        if np.any(np.isnan(cur_t)):
-            cur_t = start_t
+
+        assert np.any(np.isnan(cur_t)), "THere is a nan value in forward function!"
 
     stop(pub)
 
@@ -63,7 +63,6 @@ def rotate(deg, stereo, pub):
     start = abs(current_Pose.angular.z)
     current = start
     prev = start
-    diff = 0
     total = 0
     # print("theta: {}, start: {}".format(theta, start))
     # print("Current pose: {}".format(current_Pose.angular.z))
@@ -80,10 +79,10 @@ def rotate(deg, stereo, pub):
     stop(pub)
 
 def updatePose(R_matrix, R_rpy, t):
-    global current_Pose, true_Pose, cur_R_matrix, x_est, y_est, x_true, y_true
+    global current_Pose, true_Pose, cur_R_matrix, stats
 
-    current_Pose.linear.x = t[0].squeeze()
-    current_Pose.linear.y = t[1].squeeze()
+    current_Pose.linear.x = t[0].squeeze() - offsets["C"] + offsets["C"]*math.cos(-R_rpy[1].squeeze())
+    current_Pose.linear.y = t[1].squeeze() + offsets["C"]*math.sin(-R_rpy[1].squeeze())
     current_Pose.linear.z = t[2].squeeze()
     current_Pose.angular.x = 0.0
     current_Pose.angular.y = 0.0
@@ -91,16 +90,20 @@ def updatePose(R_matrix, R_rpy, t):
 
     data = getTruePose().groundTruth
 
-    true_Pose.linear.x = data.pose.pose.position.x
-    true_Pose.linear.y = data.pose.pose.position.y
+    true_Pose.linear.x = data.pose.pose.position.x + offsets["T"] - offsets["T"]*math.cos(-R_rpy[1].squeeze())
+    true_Pose.linear.y = data.pose.pose.position.y - offsets["T"]*math.sin(-R_rpy[1].squeeze())
     true_Pose.linear.z = data.pose.pose.position.z
 
     cur_R_matrix = R_matrix.copy()
 
-    x_est.append(current_Pose.linear.x)
-    y_est.append(current_Pose.linear.y)
-    x_true.append(-true_Pose.linear.x)
-    y_true.append(true_Pose.linear.y)
+    stats["x_est"].append(current_Pose.linear.x)
+    stats["y_est"].append(current_Pose.linear.y)
+    stats["theta_est"].append(current_Pose.angular.z)
+    stats["x_true"].append(true_Pose.linear.x)
+    stats["y_true"].append(true_Pose.linear.y)
+
+    diff = np.array([stats["x_est"][-1] - stats["x_true"][-1], stats["y_est"][-1] - stats["y_true"][-1]])
+    stats["error"].append(np.sqrt(np.sum(diff**2)))
 
 def convert(R, t):
     translation = np.array([[0.0, 0.0, 1.0],
@@ -187,6 +190,54 @@ def plusMovement(stereo, pub):
     rotate(90, stereo, pub)
     time.sleep(1)
 
+def circleMovement(stereo, pub):
+    cmd = Twist()
+    cmd.linear.x = 0.2
+    cmd.angular.z = 0.5
+    count = 0
+
+    while True:
+        pub.publish(cmd)
+        getPose(stereo)
+
+        time.sleep(0.001)
+        count += 1
+        if count > 500:
+            break
+
+    stop(pub)
+
+def displayStat(stats):
+    position_figure = plt.figure(1)
+    plt.title("Map")
+    position_axes = position_figure.add_subplot(1, 1, 1)
+    position_axes.set_aspect('equal', adjustable='box')
+
+    position_axes.scatter(stats["x_est"], stats["y_est"], c="blue", s=10)
+    position_axes.scatter(stats["x_true"], stats["y_true"], c="red", s=10)
+    
+    plt.figure(2)
+    plt.title("X-axis")
+    plt.xlabel("Frames")
+    plt.ylabel("Meters")
+    plt.plot(stats["x_est"], c="blue")
+    plt.plot(stats["x_true"], c="red")
+
+    plt.figure(3)
+    plt.title("Y-axis")
+    plt.xlabel("Frames")
+    plt.ylabel("Meters")
+    plt.plot(stats["y_est"], c="blue")
+    plt.plot(stats["y_true"], c="red")
+
+    plt.figure(4)
+    plt.title("Trajectory Error")
+    plt.xlabel("Frames")
+    plt.ylabel("Meters")
+    plt.plot(stats["error"], c="blue")
+
+    plt.show()
+
 if __name__ == "__main__":
     rospy.init_node('VO_driver')
     pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=1)
@@ -195,42 +246,29 @@ if __name__ == "__main__":
     current_Pose = Twist()
     cur_R_matrix = np.eye(3)
 
-    position_figure = plt.figure()
-    position_axes = position_figure.add_subplot(1, 1, 1)
-    position_axes.set_aspect('equal', adjustable='box')
-
     stereo = Stereo()
     stereo.initialize()
 
-    x_est = []
-    y_est = []
-    x_true = []
-    y_true = []
+    stats = {"x_est": [],
+             "y_est": [],
+             "theta_est": [],
+             "x_true": [],
+             "y_true": [],
+             "theta_true": [],
+             "error": []}
+    # TODO: Measure offset distance for both cameras
+    offsets = {"C": None,
+               "T": None}
 
     try:
         forward(5, stereo, pub)
-
-        position_axes.scatter(x_est, y_est, c="blue")
-        position_axes.scatter(x_true, y_true, c="red")
-        plt.figure(2)
-        plt.title("X-axis")
-        plt.plot(x_est, c="blue")
-        plt.plot(x_true, c="red")
-        plt.figure(3)
-        plt.title("Y-axis")
-        plt.plot(y_est, c="blue")
-        plt.plot(y_true, c="red")
-        plt.show()
-
-        # cv.imshow('Left Frame', gray)
-        # cv.waitKey(1)
+        displayStat(stats)
 
     except KeyboardInterrupt:
         print('interrupted!')
 
     finally:
         try:
-            cv.destroyWindow("Left Frame")
             plt.close('all')
         except:
             pass
