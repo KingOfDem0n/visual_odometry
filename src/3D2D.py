@@ -23,6 +23,18 @@ def getTruePose():
     except rospy.ServiceException as e:
         print("Service call failed: %s"%e)
 
+def quat2euler(orientation):
+    q0 = orientation.w
+    q1 = orientation.x
+    q2 = orientation.y
+    q3 = orientation.z
+
+    row = math.atan2(2*(q0*q1 + q2*q3), 1 - 2*(q1**2 + q2**2))
+    pitch = math.asin(2*(q0*q1 - q3*q1))
+    yaw = math.atan2(2*(q0*q3 + q1*q2), 1 - 2*(q2**2 + q3**2))
+
+    return [row, pitch, yaw]
+
 def stop(pub):
     cmd = Twist()
     pub.publish(cmd)
@@ -101,6 +113,9 @@ def updatePose(R_matrix, R_rpy, t):
     stats["theta_est"].append(current_Pose.angular.z)
     stats["x_true"].append(true_Pose.linear.x)
     stats["y_true"].append(true_Pose.linear.y)
+
+    true_euler = quat2euler(data.pose.pose.orientation)
+    stats["theta_true"].append(true_euler[2])
 
     diff = np.array([stats["x_est"][-1] - stats["x_true"][-1], stats["y_est"][-1] - stats["y_true"][-1]])
     stats["error"].append(np.sqrt(np.sum(diff**2)))
@@ -257,8 +272,8 @@ if __name__ == "__main__":
              "theta_true": [],
              "error": []}
     # TODO: Measure offset distance for both cameras
-    offsets = {"C": None,
-               "T": None}
+    offsets = {"C": 0,
+               "T": 0}
 
     try:
         forward(5, stereo, pub)
