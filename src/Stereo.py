@@ -30,6 +30,7 @@ def extract_keypoints_ros():
     rgb = bridge.imgmsg_to_cv2(data.rgb, desired_encoding='bgr8')
     gray = cv.cvtColor(rgb, cv.COLOR_BGR2GRAY)
     detector = cv.xfeatures2d.SURF_create(400)
+    # detector = cv.ORB_create(200)
     kps = detector.detect(gray, None)
     point2D = [(int(round(x.pt[0])), int(round(x.pt[1]))) for x in kps]
     point3D = np.array(list(pc2.read_points(data.point, uvs=point2D)))
