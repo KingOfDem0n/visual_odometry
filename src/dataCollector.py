@@ -2,15 +2,16 @@
 
 import numpy as np
 import pandas as pd
+import datetime
 import os
 
 import rospy
 from visual_odometry.srv import getRealSenseOdom
 from visual_odometry.srv import V_Odometry
 from visual_odometry.srv import turtlebotOdom
+from std_msgs.msg import Empty
 
 from tf.transformations import euler_from_quaternion
-
 
 class dataCollector(object):
     def __init__(self):
@@ -81,3 +82,25 @@ class dataCollector(object):
 
         df = (T265_df.join(turtle_df)).join(est_df)
         df.to_excel(file, header=self.header, index=False)
+
+def Stop(msg):
+    global flag
+
+    flag = False
+
+if __name__ == "__main__":
+    rospy.init_node('data_Collection')
+    rospy.Subscriber("/done", Empty, Stop)
+
+    flag = True
+    dataset = dataCollector()
+    rate = rospy.Rate(10)  # 10 Hz
+
+    while flag and not rospy.is_shutdown():
+        dataset.collect()
+        rate.sleep()
+
+    date = datetime.datetime.now()
+    dataset.save(os.path.join(os.getcwd(), "dataset", "{}-{}-{}-{}-{}.xls".format(date.year, date.month, date.day, date.hour, date.minute)))
+
+
