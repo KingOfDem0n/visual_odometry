@@ -10,6 +10,11 @@ from cv_bridge import CvBridge
 import sensor_msgs.point_cloud2 as pc2
 from visual_odometry.srv import getImage
 
+lk_params = dict(winSize=(21, 21),
+                 maxLevel=3,
+                 criteria=(cv.TERM_CRITERIA_EPS |
+                           cv.TERM_CRITERIA_COUNT, 20, 0.03))
+
 def getImages():
     # rospy.loginfo("Waiting for imageGrabber server...")
     rospy.wait_for_service('imageGrabber')
@@ -19,18 +24,18 @@ def getImages():
     except rospy.ServiceException as e:
         print("Service call failed: %s"%e)
 
-lk_params = dict(winSize=(21, 21),
-                 maxLevel=3,
-                 criteria=(cv.TERM_CRITERIA_EPS |
-                           cv.TERM_CRITERIA_COUNT, 20, 0.03))
 
 def extract_keypoints_ros():
     bridge = CvBridge()
     data = getImages()
+    count = 0
+    while len(data.rgb.data) == 0 or len(data.point.data) == 0:
+        data = getImages()
+        #count += 1
+        #assert count < 100, "Can not acquire rgb image or depth image"
     rgb = bridge.imgmsg_to_cv2(data.rgb, desired_encoding='bgr8')
     gray = cv.cvtColor(rgb, cv.COLOR_BGR2GRAY)
     detector = cv.xfeatures2d.SURF_create(400)
-    # detector = cv.ORB_create(200)
     kps = detector.detect(gray, None)
     point2D = [(int(round(x.pt[0])), int(round(x.pt[1]))) for x in kps]
     point3D = np.array(list(pc2.read_points(data.point, uvs=point2D)))
@@ -105,6 +110,8 @@ class Stereo(object):
             p_prev = p_prev[d < 1]
 
         if p_cur.shape[0] > 30:
+            # print(P.shape)
+            # print(p_cur.shape)
             _, _R, _t, inliers = cv.solvePnPRansac(P, p_cur, self.K, None, flags=cv.SOLVEPNP_EPNP)
             R, _ = cv.Rodrigues(_R)
             t = -R.T.dot(_t)

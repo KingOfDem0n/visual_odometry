@@ -1,5 +1,6 @@
 <launch>
 
+  <arg name="collectData" default="false"/>
   <!-- Start up all sensors -->
   <include file="$(find turtlebot_bringup)/launch/minimal.launch"/>
   <include file="$(find turtlebot_bringup)/launch/3dsensor.launch"/>
@@ -12,7 +13,8 @@
   <node name="turtlebotOdom_server" pkg="visual_odometry" type="turtlebotOdom_Server.py"/>
 
   <!-- Start up applications -->
-  <node name="dataCollector" pkg="visual_odometry" type="dataCollector.py"/>
-  <node name="controller" pkg="visual_odometry" type="controller.py"/>
+  <node name="dataCollector" pkg="visual_odometry" type="dataCollector.py" if="$(arg collectData)" output="screen"/>
+  <node name="VO_estimate" pkg="visual_odometry" type="publishEstimate.py" output="screen"/>
+  <node name="controller" pkg="visual_odometry" type="controller.py" output="screen"/>
 
 </launch>

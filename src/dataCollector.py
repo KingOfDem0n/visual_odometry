@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import datetime
+import math
 import os
 
 import rospy
@@ -46,41 +47,54 @@ class dataCollector(object):
         except rospy.ServiceException as e:
             print("Service call failed: %s" % e)
 
-    def unpackOdometryMsg(self, odom):
-        x = odom.pose.position.x
-        y = odom.pose.position.y
-        z = odom.pose.position.z
+    def unpackOdometryMsg(self, odom, sensor):
+        if odom is None:
+            return np.array([np.nan]*7)
+        offsets = {"C": 0.087,
+                   "T": 0.14}
 
-        q0 = odom.pose.orientation.x
-        q1 = odom.pose.orientation.y
-        q2 = odom.pose.orientation.z
-        q3 = odom.pose.orientation.w
+        x = odom.pose.pose.position.x
+        y = odom.pose.pose.position.y
+        z = odom.pose.pose.position.z
+
+        q0 = odom.pose.pose.orientation.x
+        q1 = odom.pose.pose.orientation.y
+        q2 = odom.pose.pose.orientation.z
+        q3 = odom.pose.pose.orientation.w
         rpy = euler_from_quaternion([q0, q1, q2, q3])
 
-        time_lapse = (odom.header.stamp - self.startTime).toSec()
+        time_lapse = (odom.header.stamp - self.startTime).to_sec()
+
+        if sensor == "C":
+            x = x - offsets["C"] + offsets["C"]*math.cos(rpy[2])
+            y = y + offsets["C"]*math.cos(rpy[2])
+        elif sensor == "T":
+            x = x + offsets["T"] - offsets["T"]*math.cos(rpy[2])
+            y = y - offsets["T"]*math.cos(rpy[2])
 
         return np.array([time_lapse, x, y, z, rpy[0], rpy[1], rpy[2]])
 
     def collect(self):
-        T265Odom = self._getT265Pose()
-        turtleOdom = self._getTurtlebotPose()
-        estOdom = self._getEstimatePose()
+        _T265Odom = self._getT265Pose()
+        _turtleOdom = self._getTurtlebotPose()
+        _estOdom = self._getEstimatePose()
 
-        upacked = self.unpackOdometryMsg(T265Odom)
+        upacked = self.unpackOdometryMsg(_T265Odom, sensor="T")
         self.T265Odom = np.vstack((self.T265Odom, upacked))
 
-        upacked = self.unpackOdometryMsg(turtleOdom)
+        upacked = self.unpackOdometryMsg(_turtleOdom, sensor="t")
         self.turtleOdom = np.vstack((self.turtleOdom, upacked))
 
-        upacked = self.unpackOdometryMsg(estOdom)
+        upacked = self.unpackOdometryMsg(_estOdom, sensor="C")
         self.estOdom = np.vstack((self.estOdom, upacked))
 
     def save(self, file):
-        T265_df = pd.DataFrame(self.T265Odom, index=False)
-        turtle_df = pd.DataFrame(self.turtleOdom, index=False)
-        est_df = pd.DataFrame(self.estOdom, index=False)
+        T265_df = pd.DataFrame(self.T265Odom)
+        turtle_df = pd.DataFrame(self.turtleOdom)
+        est_df = pd.DataFrame(self.estOdom)
 
-        df = (T265_df.join(turtle_df)).join(est_df)
+        df = (T265_df.join(turtle_df, lsuffix='_T265', rsuffix='_turtlebot')).join(est_df, rsuffix='_estimate')
+
         df.to_excel(file, header=self.header, index=False)
 
 def Stop(msg):
@@ -101,6 +115,4 @@ if __name__ == "__main__":
         rate.sleep()
 
     date = datetime.datetime.now()
-    dataset.save(os.path.join(os.getcwd(), "dataset", "{}-{}-{}-{}-{}.xls".format(date.year, date.month, date.day, date.hour, date.minute)))
-
-
+    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "plus-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))

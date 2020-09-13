@@ -7,7 +7,7 @@ import rospy
 from nav_msgs.msg import Odometry
 
 def callback_server(req):
-    response = turtlebotOdom()
+    response = turtlebotOdomResponse()
     response.turtlebotOdom = odom
 
     return response
