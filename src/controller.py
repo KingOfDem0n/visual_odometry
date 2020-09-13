@@ -125,7 +125,7 @@ if __name__ == "__main__":
     rospy.sleep(2.)
     # forward(0.5, pub)
     # rotate(90, pub)
-    # boxMovement(pub)
-    plusMovement(pub)
+    boxMovement(pub)
+    # plusMovement(pub)
 
     done.publish(Empty())

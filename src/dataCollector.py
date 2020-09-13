@@ -17,10 +17,10 @@ from tf.transformations import euler_from_quaternion
 class dataCollector(object):
     def __init__(self):
         self.header = pd.MultiIndex.from_product([["T265", "Turtlebot", "Estimate"],
-                                                  ["Time (sec)", "X (m)", "Y (m)", "Z (m)", "Row (rad)", "Pitch (rad)", "Yaw (rad)"]])
-        self.T265Odom = np.zeros((1, 7))
-        self.turtleOdom = np.zeros((1, 7))
-        self.estOdom = np.zeros((1, 7))
+                                                  ["Time (sec)", "X (m)", "Y (m)", "Z (m)", "Row (rad)", "Pitch (rad)", "Yaw (rad)", "Yaw (deg)"]])
+        self.T265Odom = np.zeros((1, 8))
+        self.turtleOdom = np.zeros((1, 8))
+        self.estOdom = np.zeros((1, 8))
         self.startTime = rospy.Time.now()
 
     def _getTurtlebotPose(self):
@@ -67,12 +67,17 @@ class dataCollector(object):
 
         if sensor == "C":
             x = x - offsets["C"] + offsets["C"]*math.cos(rpy[2])
-            y = y + offsets["C"]*math.cos(rpy[2])
+            y = y + offsets["C"]*math.sin(rpy[2])
         elif sensor == "T":
             x = x + offsets["T"] - offsets["T"]*math.cos(rpy[2])
-            y = y - offsets["T"]*math.cos(rpy[2])
+            y = y - offsets["T"]*math.sin(rpy[2])
 
-        return np.array([time_lapse, x, y, z, rpy[0], rpy[1], rpy[2]])
+        deg_yaw = rpy[2]*180/math.pi
+
+        if deg_yaw < 0:
+            deg_yaw += 360
+
+        return np.array([time_lapse, x, y, z, rpy[0], rpy[1], rpy[2], deg_yaw])
 
     def collect(self):
         _T265Odom = self._getT265Pose()
@@ -115,4 +120,4 @@ if __name__ == "__main__":
         rate.sleep()
 
     date = datetime.datetime.now()
-    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "plus-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
+    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "box-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
