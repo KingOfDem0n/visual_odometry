@@ -120,4 +120,4 @@ if __name__ == "__main__":
         rate.sleep()
 
     date = datetime.datetime.now()
-    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "box-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
+    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "plus-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
