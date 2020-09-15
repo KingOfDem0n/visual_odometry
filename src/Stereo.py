@@ -24,22 +24,70 @@ def getImages():
     except rospy.ServiceException as e:
         print("Service call failed: %s"%e)
 
+def efficientNMS(img, r=30):
+    fail_flag = False
+    pts = []
+    for i in range(r, img.shape[0]-r, 2*r+1 - r):
+        for j in range(r, img.shape[1]-r, 2*r+1 - r):
+            fail_flag = False
+            mi, mj = i, j
+            upper_bound1 = np.array(range(i, i+r)).astype(np.int16)
+            lower_bound1 = np.array(range(j, j+r)).astype(np.int16)
+            for (i2,j2) in zip(upper_bound1,lower_bound1):
+                if img[i2, j2] > img[mi, mj]:
+                    mi, mj = i2, j2
+            upper_bound2 = np.array(range(mi-r, mi+r)).astype(np.int16)
+            lower_bound2 = np.array(range(mj-r, mj+r)).astype(np.int16)
+            upper_bound2 = upper_bound2[~np.isin(upper_bound2,upper_bound1)]
+            lower_bound2 = lower_bound2[~np.isin(lower_bound2,lower_bound1)]
+            upper_bound2 = upper_bound2[upper_bound2 < img.shape[0]]
+            lower_bound2 = lower_bound2[lower_bound2 < img.shape[1]]
+            for (i2,j2) in zip(upper_bound2, lower_bound2):
+                if img[i2, j2] > img[mi, mj]:
+                    fail_flag = True
+                    break
+            if not fail_flag:
+                pts.append((mj, mi))
 
-def extract_keypoints_ros():
+    return np.array(pts)
+
+def extract_keypoints_ros(method="SURF"):
+    assert method in ["SURF", "SOFT"], "Incorrect keypoint extraction method passed in"
+
     bridge = CvBridge()
     data = getImages()
-    count = 0
     while len(data.rgb.data) == 0 or len(data.point.data) == 0:
         data = getImages()
-        #count += 1
-        #assert count < 100, "Can not acquire rgb image or depth image"
     rgb = bridge.imgmsg_to_cv2(data.rgb, desired_encoding='bgr8')
     gray = cv.cvtColor(rgb, cv.COLOR_BGR2GRAY)
-    detector = cv.xfeatures2d.SURF_create(400)
-    kps = detector.detect(gray, None)
-    point2D = [(int(round(x.pt[0])), int(round(x.pt[1]))) for x in kps]
+    point2D = []
+    if method == "SURF":
+        detector = cv.xfeatures2d.SURF_create(400)
+        kps = detector.detect(gray, None)
+        point2D = [(int(round(x.pt[0])), int(round(x.pt[1]))) for x in kps]
+    elif method == "SOFT":
+        blob_kernel = np.array([[-1, -1, -1, -1, -1],
+                                [-1, 1, 1, 1, -1],
+                                [-1, 1, 8, 1, -1],
+                                [-1, 1, 1, 1, -1],
+                                [-1, -1, -1, -1, -1]])
+        corner_kernel = np.array([[-1, -1, 0, 1, 1],
+                                 [-1, -1, 0, 1, 1],
+                                 [0, 0, 0, 0, 0],
+                                 [1, 1, 0, -1, -1],
+                                 [1, 1, 0, -1, -1]])
+
+        blob_mask = cv.filter2D(gray, -1, blob_kernel)
+        corner_mask = cv.filter2D(gray, -1, corner_kernel)
+
+        blob_pts = efficientNMS(blob_mask, 30)
+        corner_pts = efficientNMS(corner_mask, 30)
+
+        point2D = np.vstack((blob_pts, corner_pts)).tolist()
+
     point3D = np.array(list(pc2.read_points(data.point, uvs=point2D)))
     point2D = np.array(point2D)
+
 
     return point3D, point2D, gray
 
@@ -59,7 +107,7 @@ class Stereo(object):
                           "3D": np.array([])}
 
     def initialize(self):
-        point3D, point2D, grayL = extract_keypoints_ros()
+        point3D, point2D, grayL = extract_keypoints_ros("SOFT")
         self.prevState["2D"] = point2D.copy()
         self.prevState["3D"] = point3D.copy()
         self.prevFrameL = grayL.copy()
@@ -67,12 +115,12 @@ class Stereo(object):
         return  point3D, point2D
 
     def saveNewKeyPoints(self):
-        point3D, point2D, _ = extract_keypoints_ros()
+        point3D, point2D, _ = extract_keypoints_ros("SOFT")
         self.keyPoint["2D"] = point2D.copy()
         self.keyPoint["3D"] = point3D.copy()
 
     def nextFrame(self):
-        _, _, curFrame = extract_keypoints_ros()
+        _, _, curFrame = extract_keypoints_ros("SOFT")
         p_prev = self.prevState["2D"]
         P = self.prevState["3D"]
 

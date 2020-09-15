@@ -5,11 +5,14 @@ import pandas as pd
 import datetime
 import math
 import os
+import cv2 as cv
+from cv_bridge import CvBridge
 
 import rospy
 from visual_odometry.srv import getRealSenseOdom
 from visual_odometry.srv import V_Odometry
 from visual_odometry.srv import turtlebotOdom
+from visual_odometry.srv import getImage
 from std_msgs.msg import Empty
 
 from tf.transformations import euler_from_quaternion
@@ -22,6 +25,8 @@ class dataCollector(object):
         self.turtleOdom = np.zeros((1, 8))
         self.estOdom = np.zeros((1, 8))
         self.startTime = rospy.Time.now()
+
+        self.imageCount = 0
 
     def _getTurtlebotPose(self):
         rospy.wait_for_service('turtlebotOdom')
@@ -46,6 +51,16 @@ class dataCollector(object):
             return server().estimate
         except rospy.ServiceException as e:
             print("Service call failed: %s" % e)
+
+    def _getImage(self):
+        rospy.wait_for_service('imageGrabber')
+        try:
+            server = rospy.ServiceProxy('imageGrabber', getImage)
+            bridge = CvBridge()
+            rgb = bridge.imgmsg_to_cv2(server().rgb, desired_encoding='bgr8')
+            return rgb
+        except rospy.ServiceException as e:
+            print("Service call failed: %s"%e)
 
     def unpackOdometryMsg(self, odom, sensor):
         if odom is None:
@@ -79,7 +94,7 @@ class dataCollector(object):
 
         return np.array([time_lapse, x, y, z, rpy[0], rpy[1], rpy[2], deg_yaw])
 
-    def collect(self):
+    def collect(self, saveFrames=False):
         _T265Odom = self._getT265Pose()
         _turtleOdom = self._getTurtlebotPose()
         _estOdom = self._getEstimatePose()
@@ -92,6 +107,11 @@ class dataCollector(object):
 
         upacked = self.unpackOdometryMsg(_estOdom, sensor="C")
         self.estOdom = np.vstack((self.estOdom, upacked))
+
+        if saveFrames:
+            rgb = self._getImage()
+            cv.imwrite("/home/pete/catkin_ws/src/visual_odometry/dataset/image_sequences/box/{:06d}.png".format(self.imageCount), rgb)
+            self.imageCount += 1
 
     def save(self, file):
         T265_df = pd.DataFrame(self.T265Odom)
@@ -110,14 +130,15 @@ def Stop(msg):
 if __name__ == "__main__":
     rospy.init_node('data_Collection')
     rospy.Subscriber("/done", Empty, Stop)
+    rospy.sleep(1.)
 
     flag = True
     dataset = dataCollector()
-    rate = rospy.Rate(10)  # 10 Hz
+    rate = rospy.Rate(30)
 
     while flag and not rospy.is_shutdown():
-        dataset.collect()
+        dataset.collect(True)
         rate.sleep()
 
     date = datetime.datetime.now()
-    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "plus-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
+    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "boxNimages-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
