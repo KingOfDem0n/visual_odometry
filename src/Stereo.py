@@ -51,16 +51,22 @@ def efficientNMS(img, r=30):
 
     return np.array(pts)
 
-def extract_keypoints_ros(method="SURF"):
+def extract_keypoints_ros(method="SURF", frame=None):
     assert method in ["SURF", "SOFT"], "Incorrect keypoint extraction method passed in"
 
-    bridge = CvBridge()
-    data = getImages()
-    while len(data.rgb.data) == 0 or len(data.point.data) == 0:
-        data = getImages()
-    rgb = bridge.imgmsg_to_cv2(data.rgb, desired_encoding='bgr8')
-    gray = cv.cvtColor(rgb, cv.COLOR_BGR2GRAY)
+    gray = None
     point2D = []
+
+    if frame is None:
+        bridge = CvBridge()
+        data = getImages()
+        while len(data.rgb.data) == 0 or len(data.point.data) == 0:
+            data = getImages()
+        rgb = bridge.imgmsg_to_cv2(data.rgb, desired_encoding='bgr8')
+        gray = cv.cvtColor(rgb, cv.COLOR_BGR2GRAY)
+    else:
+        gray = cv.cvtColor(frame, cv.COLOR_RGB2GRAY)
+
     if method == "SURF":
         detector = cv.xfeatures2d.SURF_create(400)
         kps = detector.detect(gray, None)
@@ -106,21 +112,26 @@ class Stereo(object):
         self.prevState = {"2D": np.array([]),
                           "3D": np.array([])}
 
-    def initialize(self):
-        point3D, point2D, grayL = extract_keypoints_ros("SOFT")
+    def initialize(self, frame=None):
+        point3D, point2D, grayL = extract_keypoints_ros("SOFT", frame=frame)
         self.prevState["2D"] = point2D.copy()
         self.prevState["3D"] = point3D.copy()
         self.prevFrameL = grayL.copy()
 
-        return  point3D, point2D
+        return point3D, point2D
 
-    def saveNewKeyPoints(self):
-        point3D, point2D, _ = extract_keypoints_ros("SOFT")
+    def saveNewKeyPoints(self, frame=None):
+        point3D, point2D, _ = extract_keypoints_ros("SOFT", frame=frame)
         self.keyPoint["2D"] = point2D.copy()
         self.keyPoint["3D"] = point3D.copy()
 
-    def nextFrame(self):
-        _, _, curFrame = extract_keypoints_ros("SOFT")
+    def nextFrame(self, frame=None):
+        curFrame = None
+        if frame is None:
+            _, _, curFrame = extract_keypoints_ros("SOFT")
+        else:
+            curFrame = frame.copy()
+
         p_prev = self.prevState["2D"]
         P = self.prevState["3D"]
 
@@ -187,6 +198,6 @@ class Stereo(object):
         self.prevState["2D"] = p_cur.copy()
         self.prevState["3D"] = P.copy()
 
-        self.saveNewKeyPoints()
+        self.saveNewKeyPoints(frame=curFrame)
 
         return R.T, t, curFrame
