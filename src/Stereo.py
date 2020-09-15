@@ -22,7 +22,7 @@ ransacPnP_params = dict(useExtrinsicGuess=True,
                         confidence=0.999,
                         flags=cv.SOLVEPNP_ITERATIVE) # SOLVEPNP_ITERATIVE, SOLVEPNP_P3P, SOLVEPNP_EPNP, SOLVEPNP_DLS
 
-detection_method = "SURF"
+detection_method = "SOFT"
 
 def getImages():
     # rospy.loginfo("Waiting for imageGrabber server...")

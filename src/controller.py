@@ -36,7 +36,7 @@ def rotate(deg, pub):
     theta = abs(deg * math.pi / 180.0)
     start_time = rospy.Time.now()
     time = start_time
-    duration = (theta / 0.5)*1.9
+    duration = (theta / 0.5)*1.825
 
     while (time - start_time).to_sec() < duration:
         pub.publish(cmd)
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     rospy.sleep(5.)
     # forward(0.5, pub)
     # rotate(90, pub)
-    boxMovement(pub)
-    # plusMovement(pub)
+    # boxMovement(pub)
+    plusMovement(pub)
 
     done.publish(Empty())
