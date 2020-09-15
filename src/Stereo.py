@@ -1,5 +1,6 @@
 import numpy as np
 from math import sin, cos
+import math
 import cv2 as cv
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -15,10 +16,13 @@ lk_params = dict(winSize=(21, 21),
                  criteria=(cv.TERM_CRITERIA_EPS |
                            cv.TERM_CRITERIA_COUNT, 20, 0.03)) # Change 20 to 100
 
-ransacPnP_params = dict(useExtrinsicGuess=False,
-                        iterationsCount=int(math.log10(1-0.99)/math.log10(1-((1-0.6)**3))),
-                        reprojectionError=0.1,
+ransacPnP_params = dict(useExtrinsicGuess=True,
+                        iterationsCount=250,
+                        reprojectionError=1,
+                        confidence=0.999,
                         flags=cv.SOLVEPNP_ITERATIVE) # SOLVEPNP_ITERATIVE, SOLVEPNP_P3P, SOLVEPNP_EPNP, SOLVEPNP_DLS
+
+detection_method = "SURF"
 
 def getImages():
     # rospy.loginfo("Waiting for imageGrabber server...")
@@ -119,7 +123,7 @@ class Stereo(object):
                           "3D": np.array([])}
 
     def initialize(self, frame=None):
-        point3D, point2D, grayL, pointCloud = extract_keypoints_ros("SOFT", frame=frame)
+        point3D, point2D, grayL, pointCloud = extract_keypoints_ros(detection_method, frame=frame)
         self.prevState["2D"] = point2D.copy()
         self.prevState["3D"] = point3D.copy()
         self.prevFrameL = grayL.copy()
@@ -128,7 +132,7 @@ class Stereo(object):
         return point3D, point2D
 
     def saveNewKeyPoints(self, frame=None):
-        point3D, point2D, _ = extract_keypoints_ros("SOFT", frame=frame)
+        point3D, point2D, _ = extract_keypoints_ros(detection_method, frame=frame)
         self.keyPoint["2D"] = point2D.copy()
         self.keyPoint["3D"] = point3D.copy()
 
@@ -162,7 +166,7 @@ class Stereo(object):
 
             point2D = np.vstack((blob_pts, corner_pts)).tolist()
 
-        point3D = np.array(list(pc2.read_points(self.pointCloud, uvs=point2D)))
+        point3D = np.array(list(pc2.read_points(self.prevPointCloud, uvs=point2D)))
         point2D = np.array(point2D)
 
         return point2D, point3D
@@ -183,26 +187,50 @@ class Stereo(object):
         return p_prev, p_cur, P
 
     def nextFrame(self, frame=None):
-        _, _, curFrame, pointCloud = extract_keypoints_ros("SOFT", frame=frame, justFrame=True)
+        _, _, curFrame, pointCloud = extract_keypoints_ros(detection_method, frame=frame, justFrame=True)
 
         p_prev = self.prevState["2D"]
         P = self.prevState["3D"]
 
         p_prev = p_prev.astype(np.float32)
 
-        p_prev, p_cur, P = self.featureTracking(curFrame, p_prev, P)
+        #p_prev, p_cur, P = self.featureTracking(curFrame, p_prev, P)
 
-        if p_cur.shape[0] < 30:
+        p_cur, status, err = cv.calcOpticalFlowPyrLK(self.prevFrameL, curFrame, p_prev, None, **lk_params)
+        p_cur = p_cur[status.ravel() == 1]
+        p_prev = p_prev[status.ravel() == 1]
+        P = P[status.ravel() == 1]
+        p_prev_r, _, _ = cv.calcOpticalFlowPyrLK(curFrame, self.prevFrameL, p_cur, None, **lk_params)
+
+        # Filter out occluded point
+        d = abs(p_prev - p_prev_r).reshape(-1, 2).max(-1)
+        P = P[d < 1]
+        p_cur = p_cur[d < 1]
+        p_prev = p_prev[d < 1]
+
+        if p_cur.shape[0] < 50:
             # P = self.keyPoint["3D"].copy()
             # p_prev = self.keyPoint["2D"].copy()
-            p_prev, P = getNewKeyPoints(method="SOFT")
+            p_prev, P = self.getNewKeyPoints(method=detection_method)
             P = np.vstack((P.T, np.ones((1, P.shape[0]))))
             P = self.prevInvTransform.dot(P).T
             p_prev = p_prev.astype(np.float32)
 
-            p_prev, p_cur, P = self.featureTracking(curFrame, p_prev, P)
+            # p_prev, p_cur, P = self.featureTracking(curFrame, p_prev, P)
 
-        if p_cur.shape[0] > 30:
+            p_cur, status, err = cv.calcOpticalFlowPyrLK(self.prevFrameL, curFrame, p_prev, None, **lk_params)
+            p_cur = p_cur[status.ravel() == 1]
+            p_prev = p_prev[status.ravel() == 1]
+            P = P[status.ravel() == 1]
+            p_prev_r, _, _ = cv.calcOpticalFlowPyrLK(curFrame, self.prevFrameL, p_cur, None, **lk_params)
+
+            # Filter out occluded point
+            d = abs(p_prev - p_prev_r).reshape(-1, 2).max(-1)
+            P = P[d < 1]
+            p_cur = p_cur[d < 1]
+            p_prev = p_prev[d < 1]
+
+        if p_cur.shape[0] > 10:
             _, _R, _t, inliers = cv.solvePnPRansac(P, p_cur, self.K, None, **ransacPnP_params)
             R, _ = cv.Rodrigues(_R)
             t = -R.T.dot(_t)

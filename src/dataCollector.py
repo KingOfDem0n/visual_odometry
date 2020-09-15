@@ -130,15 +130,15 @@ def Stop(msg):
 if __name__ == "__main__":
     rospy.init_node('data_Collection')
     rospy.Subscriber("/done", Empty, Stop)
-    rospy.sleep(1.)
+    # rospy.sleep(1.)
 
     flag = True
     dataset = dataCollector()
     rate = rospy.Rate(30)
 
     while flag and not rospy.is_shutdown():
-        dataset.collect(True)
+        dataset.collect()
         rate.sleep()
 
     date = datetime.datetime.now()
-    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "boxNimages-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
+    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "box-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
