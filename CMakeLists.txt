@@ -59,7 +59,9 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   getImage.srv
-	getRealSenseOdom.srv
+  getRealSenseOdom.srv
+  V_Odometry.srv
+  turtlebotOdom.srv
 )
 
 ## Generate actions in the 'action' folder
