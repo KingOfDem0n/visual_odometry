@@ -8,8 +8,8 @@ from nav_msgs.msg import Odometry
 
 def callback_server(req):
     response = getRealSenseOdomResponse()
-    response.groundTruth = odom
-    
+    response.T265Odom = odom
+
     return response
 
 def callback_odom(msg):
