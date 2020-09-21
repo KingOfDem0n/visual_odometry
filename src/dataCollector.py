@@ -141,8 +141,5 @@ if __name__ == "__main__":
         rate.sleep()
 
     date = datetime.datetime.now()
-<<<<<<< HEAD
-    #dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "uncompensatedBox-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
-=======
-    # dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "nonCompensatedBox-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
->>>>>>> 0ce212ebab64d706569cfa1823d60ae3f923c3dc
+
+    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "uncompensatedBox-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
