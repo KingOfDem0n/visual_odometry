@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="collectData" default="false"/>
+  <arg name="collectData" default="true"/>
   <!-- Start up all sensors -->
   <include file="$(find turtlebot_bringup)/launch/minimal.launch"/>
   <include file="$(find turtlebot_bringup)/launch/3dsensor.launch"/>

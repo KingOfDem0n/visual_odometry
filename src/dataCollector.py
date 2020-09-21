@@ -80,12 +80,12 @@ class dataCollector(object):
 
         time_lapse = (odom.header.stamp - self.startTime).to_sec()
 
-        if sensor == "C":
-            x = x - offsets["C"] + offsets["C"]*math.cos(rpy[2])
-            y = y + offsets["C"]*math.sin(rpy[2])
-        elif sensor == "T":
-            x = x + offsets["T"] - offsets["T"]*math.cos(rpy[2])
-            y = y - offsets["T"]*math.sin(rpy[2])
+        # if sensor == "C":
+        #     x = x - offsets["C"] + offsets["C"]*math.cos(rpy[2])
+        #     y = y + offsets["C"]*math.sin(rpy[2])
+        # elif sensor == "T":
+        #     x = x + offsets["T"] - offsets["T"]*math.cos(rpy[2])
+        #     y = y - offsets["T"]*math.sin(rpy[2])
 
         deg_yaw = rpy[2]*180/math.pi
 
@@ -134,11 +134,11 @@ if __name__ == "__main__":
 
     flag = True
     dataset = dataCollector()
-    rate = rospy.Rate(30)
+    rate = rospy.Rate(10)
 
     while flag and not rospy.is_shutdown():
         dataset.collect()
         rate.sleep()
 
     date = datetime.datetime.now()
-    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "plus-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
+    # dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "nonCompensatedBox-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
