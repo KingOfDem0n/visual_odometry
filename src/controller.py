@@ -17,12 +17,14 @@ def forward(x, pub):
     cmd.linear.x = 0.2
 
     start_time = rospy.Time.now()
-    time = start_time
-    duration = (x/cmd.linear.x)*1.35
-    while (time - start_time).to_sec() < duration:
-        pub.publish(cmd)
-        time = rospy.Time.now()
-        rate.sleep()
+    # time = start_time
+    duration = rospy.Duration.from_sec((x/cmd.linear.x)*1.35)
+    pub.publish(cmd)
+    rospy.sleep(duration)
+    # while (time - start_time).to_sec() < duration:
+    #     pub.publish(cmd)
+    #     time = rospy.Time.now()
+    #     rate.sleep()
 
     stop(pub)
 
@@ -35,13 +37,16 @@ def rotate(deg, pub):
 
     theta = abs(deg * math.pi / 180.0)
     start_time = rospy.Time.now()
-    time = start_time
-    duration = (theta / 0.5)*1.825
+    # time = start_time
+    duration = rospy.Duration.from_sec((theta / 0.5)*1.825)
 
-    while (time - start_time).to_sec() < duration:
-        pub.publish(cmd)
-        time = rospy.Time.now()
-        rate.sleep()
+    pub.publish(cmd)
+    rospy.sleep(duration)
+
+    # while (time - start_time).to_sec() < duration:
+    #     pub.publish(cmd)
+    #     time = rospy.Time.now()
+    #     rate.sleep()
 
     stop(pub)
 
@@ -120,7 +125,7 @@ if __name__ == "__main__":
     pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=1)
     done = rospy.Publisher("/done", Empty, queue_size=1)
 
-    rate = rospy.Rate(100) # 10 Hz
+    rate = rospy.Rate(100) # 100 Hz
 
     rospy.sleep(5.)
     forward(0.5, pub)
