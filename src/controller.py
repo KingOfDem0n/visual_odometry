@@ -123,9 +123,9 @@ if __name__ == "__main__":
     rate = rospy.Rate(100) # 10 Hz
 
     rospy.sleep(5.)
-    # forward(0.5, pub)
+    forward(0.5, pub)
     # rotate(90, pub)
     # boxMovement(pub)
-    plusMovement(pub)
+    # plusMovement(pub)
 
     done.publish(Empty())
