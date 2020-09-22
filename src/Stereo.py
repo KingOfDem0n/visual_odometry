@@ -16,6 +16,7 @@ lk_params = dict(winSize=(21, 21),
                  criteria=(cv.TERM_CRITERIA_EPS |
                            cv.TERM_CRITERIA_COUNT, 20, 0.03)) # Change 20 to 100
 
+# TODO: Adaptive parameters
 ransacPnP_params = dict(useExtrinsicGuess=True,
                         iterationsCount=250,
                         reprojectionError=1,
@@ -78,6 +79,8 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
     else:
         gray = cv.cvtColor(frame, cv.COLOR_RGB2GRAY)
 
+    gray = gray[50:, :]
+
     if not justFrame:
         if method == "SURF":
             detector = cv.xfeatures2d.SURF_create(400)
@@ -111,7 +114,7 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
 class Stereo(object):
     def __init__(self):
         self.K = np.array([[570.3405151367188, 0.0, 314.5],
-                           [0.0, 570.3405151367188, 235.5],
+                           [0.0, 570.3405151367188, 210.5], # 235.5
                            [0.0, 0.0, 1.0]], dtype=np.float32)
 
         self.keyPoint = {"2D": np.array([]),

@@ -75,8 +75,8 @@ class dataCollector(object):
     def unpackOdometryMsg(self, odom, sensor):
         if odom is None:
             return np.array([np.nan]*7)
-        offsets = {"C": 0.087,
-                   "T": 0.14}
+        offsets = {"C": 0.1, # 0.087
+                   "T": 0.11} # 0.14
 
         x = odom.pose.pose.position.x
         y = odom.pose.pose.position.y
