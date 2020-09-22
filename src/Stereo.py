@@ -78,6 +78,8 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
     else:
         gray = cv.cvtColor(frame, cv.COLOR_RGB2GRAY)
 
+    gray = gray[60:,:]
+
     if not justFrame:
         if method == "SURF":
             detector = cv.xfeatures2d.SURF_create(400)
@@ -111,7 +113,7 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
 class Stereo(object):
     def __init__(self):
         self.K = np.array([[570.3405151367188, 0.0, 314.5],
-                           [0.0, 570.3405151367188, 235.5],
+                           [0.0, 570.3405151367188, 205.5], # 235.5
                            [0.0, 0.0, 1.0]], dtype=np.float32)
 
         self.keyPoint = {"2D": np.array([]),
