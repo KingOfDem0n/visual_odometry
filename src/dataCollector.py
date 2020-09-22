@@ -12,6 +12,7 @@ import rospy
 from visual_odometry.srv import getRealSenseOdom
 from visual_odometry.srv import V_Odometry
 from visual_odometry.srv import turtlebotOdom
+from visual_odometry.srv import combinedOdom
 from visual_odometry.srv import getImage
 from std_msgs.msg import Empty
 
@@ -19,11 +20,12 @@ from tf.transformations import euler_from_quaternion
 
 class dataCollector(object):
     def __init__(self):
-        self.header = pd.MultiIndex.from_product([["T265", "Turtlebot", "Estimate"],
+        self.header = pd.MultiIndex.from_product([["T265", "Turtlebot", "Estimate", "Combined"],
                                                   ["Time (sec)", "X (m)", "Y (m)", "Z (m)", "Row (rad)", "Pitch (rad)", "Yaw (rad)", "Yaw (deg)"]])
         self.T265Odom = np.zeros((1, 8))
         self.turtleOdom = np.zeros((1, 8))
         self.estOdom = np.zeros((1, 8))
+        self.combinedOdom = np.zeros((1, 8))
         self.startTime = rospy.Time.now()
 
         self.imageCount = 0
@@ -49,6 +51,14 @@ class dataCollector(object):
         try:
             server = rospy.ServiceProxy('V_Odometry', V_Odometry)
             return server().estimate
+        except rospy.ServiceException as e:
+            print("Service call failed: %s" % e)
+
+    def _getCombinedPose(self):
+        rospy.wait_for_service('combinedOdom')
+        try:
+            server = rospy.ServiceProxy('combinedOdom', combinedOdom)
+            return server().combined_odom
         except rospy.ServiceException as e:
             print("Service call failed: %s" % e)
 
@@ -98,6 +108,7 @@ class dataCollector(object):
         _T265Odom = self._getT265Pose()
         _turtleOdom = self._getTurtlebotPose()
         _estOdom = self._getEstimatePose()
+        _combinedOdom = self._getCombinedPose()
 
         upacked = self.unpackOdometryMsg(_T265Odom, sensor="T")
         self.T265Odom = np.vstack((self.T265Odom, upacked))
@@ -108,6 +119,9 @@ class dataCollector(object):
         upacked = self.unpackOdometryMsg(_estOdom, sensor="C")
         self.estOdom = np.vstack((self.estOdom, upacked))
 
+        upacked = self.unpackOdometryMsg(_combinedOdom, sensor="c")
+        self.combinedOdom = np.vstack((self.combinedOdom, upacked))
+
         if saveFrames:
             rgb = self._getImage()
             cv.imwrite("/home/pete/catkin_ws/src/visual_odometry/dataset/image_sequences/box/{:06d}.png".format(self.imageCount), rgb)
@@ -117,8 +131,9 @@ class dataCollector(object):
         T265_df = pd.DataFrame(self.T265Odom)
         turtle_df = pd.DataFrame(self.turtleOdom)
         est_df = pd.DataFrame(self.estOdom)
+        combined_df = pd.DataFrame(self.combinedOdom)
 
-        df = (T265_df.join(turtle_df, lsuffix='_T265', rsuffix='_turtlebot')).join(est_df, rsuffix='_estimate')
+        df = ((T265_df.join(turtle_df, lsuffix='_T265', rsuffix='_turtlebot')).join(est_df, rsuffix='_estimate')).join(combined_df, rsuffix='_combined')
 
         df.to_excel(file, header=self.header, index=False)
 
@@ -142,4 +157,4 @@ if __name__ == "__main__":
 
     date = datetime.datetime.now()
 
-    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "Box-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))
+    dataset.save(os.path.join("/home/pete/catkin_ws/src/visual_odometry/dataset", "CombinedBox-{}-{}-{}-{}-{}.xlsx".format(date.year, date.month, date.day, date.hour, date.minute)))

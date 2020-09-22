@@ -32,6 +32,10 @@ def updatePose(stereo):
     odom.pose.pose.orientation.z = q[2]
     odom.pose.pose.orientation.w = q[3]
 
+    odom.pose.covariance = [0.5]*36
+
+    odom.twist.covariance = [1000000]*36
+
 def convert(R, t):
     translation = np.array([[0.0, 0.0, 1.0],
                             [-1.0, 0.0, 0.0],

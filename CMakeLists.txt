@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 	sensor_msgs
 	nav_msgs
+	geometry_msgs
   message_generation
 )
 
@@ -62,6 +63,7 @@ add_service_files(
   getRealSenseOdom.srv
   V_Odometry.srv
   turtlebotOdom.srv
+  combinedOdom.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -77,6 +79,7 @@ generate_messages(
   std_msgs
 	sensor_msgs
 	nav_msgs
+	geometry_msgs
 	# Or other packages containing msgs
 )
 

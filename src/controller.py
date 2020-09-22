@@ -18,7 +18,7 @@ def forward(x, pub):
 
     start_time = rospy.Time.now()
     # time = start_time
-    duration = rospy.Duration.from_sec((x/cmd.linear.x)*1.35)
+    duration = rospy.Duration.from_sec((x/cmd.linear.x)*1.35) #1.35
     pub.publish(cmd)
     rospy.sleep(duration)
     # while (time - start_time).to_sec() < duration:
@@ -38,7 +38,7 @@ def rotate(deg, pub):
     theta = abs(deg * math.pi / 180.0)
     start_time = rospy.Time.now()
     # time = start_time
-    duration = rospy.Duration.from_sec((theta / 0.5)*1.9)
+    duration = rospy.Duration.from_sec((theta / 0.5)*1.9) #1.9
 
     pub.publish(cmd)
     rospy.sleep(duration)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     rospy.sleep(5.)
     # forward(0.5, pub)
-    # rotate(90, pub)
+    # rotate(-90, pub)
     boxMovement(pub)
     # plusMovement(pub)
 
