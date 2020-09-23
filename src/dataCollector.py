@@ -75,8 +75,8 @@ class dataCollector(object):
     def unpackOdometryMsg(self, odom, sensor):
         if odom is None:
             return np.array([np.nan]*7)
-        offsets = {"C": 0.087,
-                   "T": 0.14}
+        offsets = {"C": 0.087, # 0.087
+                   "T": 0.11} # 0.14
 
         x = odom.pose.pose.position.x
         y = odom.pose.pose.position.y
@@ -90,10 +90,10 @@ class dataCollector(object):
 
         time_lapse = (odom.header.stamp - self.startTime).to_sec()
 
-        if sensor == "C":
-            x = x - offsets["C"] + offsets["C"]*math.cos(rpy[2])
-            y = y + offsets["C"]*math.sin(rpy[2])
-        elif sensor == "T":
+        # if sensor == "C":
+        #     x = x - offsets["C"] + offsets["C"]*math.cos(rpy[2])
+        #     y = y + offsets["C"]*math.sin(rpy[2])
+        if sensor == "T":
             x = x + offsets["T"] - offsets["T"]*math.cos(rpy[2])
             y = y - offsets["T"]*math.sin(rpy[2])
 

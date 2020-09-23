@@ -5,19 +5,24 @@ from __future__ import print_function
 # Python imports
 import cv2 as cv
 import numpy as np
+import math
 from Stereo import Stereo
 
 import rospy
+from cv_bridge import CvBridge
 from tf.transformations import quaternion_from_euler
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Image
 
 def updatePose(stereo):
-    global odom
+    global odom, image
 
-    R_matrix, t, _ = stereo.nextFrame()
+    R_matrix, t, gray = stereo.nextFrame()
+    image = bridge.cv2_to_imgmsg(gray, encoding="passthrough")
 
     R_rpy, t = convert(R_matrix, t)
 
+    offset = 0.087
     q = quaternion_from_euler(R_rpy[0], R_rpy[1], R_rpy[2])
 
     odom.header.stamp = rospy.Time.now()
@@ -32,9 +37,12 @@ def updatePose(stereo):
     odom.pose.pose.orientation.z = q[2]
     odom.pose.pose.orientation.w = q[3]
 
-    odom.pose.covariance = [0.5]*36
+    odom.pose.pose.position.x = odom.pose.pose.position.x - offset + offset*math.cos(R_rpy[2])
+    odom.pose.pose.position.y = odom.pose.pose.position.y + offset*math.sin(R_rpy[2])
 
-    odom.twist.covariance = [1000000]*36
+    odom.pose.covariance = (np.eye(6) * 0.01).reshape(36).tolist()
+
+    odom.twist.covariance = (np.eye(6) * 10e300).reshape(36).tolist()
 
 def convert(R, t):
     translation = np.array([[0.0, 0.0, 1.0],
@@ -53,8 +61,11 @@ def convert(R, t):
 if __name__ == "__main__":
     rospy.init_node('VO_Estimate')
     pub = rospy.Publisher('/VO_estimate', Odometry, queue_size=1)
-    rate = rospy.Rate(100) # 100hz
+    image_pub = rospy.Publisher('/whatIsee', Image, queue_size=100)
+    rate = rospy.Rate(25)
+    bridge = CvBridge()
     odom = Odometry()
+    image = Image()
 
     stereo = Stereo()
     stereo.initialize()
@@ -62,4 +73,5 @@ if __name__ == "__main__":
     while not rospy.is_shutdown():
         updatePose(stereo)
         pub.publish(odom)
+        image_pub.publish(image)
         rate.sleep()

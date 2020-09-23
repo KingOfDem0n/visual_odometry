@@ -3,13 +3,14 @@
    <param name="output_frame" value="odom"/>
    <param name="freq" value="30.0"/>
    <param name="sensor_timeout" value="1.0"/>
-   <param name="odom_used" value="false"/>
+   <param name="odom_used" value="true"/>
+   <remap from="odom" to="/odom_modified"/>
    <param name="imu_used" value="true"/>
-   <remap from="imu_data" to="/mobile_base/sensors/imu_data"/>
+   <remap from="imu_data" to="/mobile_base/sensors/imu_data_modified"/>
    <param name="vo_used" value="true"/>
    <remap from="vo" to="/VO_estimate"/>
    <param name="debug" value="false"/>
-   <param name="self_diagnose" value="false"/>
+   <param name="self_diagnose" value="true"/>
  </node>
 
  <node name="vo_link" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 /camera_rgb_frame vo 100"/>
