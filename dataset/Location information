@@ -1,0 +1,12 @@
+If there is a number of movement name such as Box# where # is a number, it specified a different testing location than the default.
+
+2: The opposite of the defult. Start facing down at top-left corner of the default path
+3: In the back of the lab. (Feature rich)
+4: In the hallway outside the lab, directly infront of the lab door. (Feature poor)
+5: In the hallway outside the lab, further away from the door we it can see elevator. (Feature poor)
+6: Big opening (where I used to test fly drone once). (Drastic change in lighting)
+
+Note that the first location 2 has 6 reults (3 for using extrinsic pose and 3 for not using it). However, the rest of the test will not use extrinsic pose guess as it performs more consistently and allows for EKF fusion node to work properly.
+
+At 4, when returning to origin VO fail when it see both close wall and hall way.
+At 6, when facing directly at the window where it light is shining in, the VO fails immediately.

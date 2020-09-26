@@ -1,0 +1,11 @@
+<launch>
+  <!-- Start up all servers -->
+  <node name="getImage_server" pkg="visual_odometry" type="getImage_Server.py"/>
+  <node name="getRealSenseOdom_server" pkg="visual_odometry" type="getRealSenseOdom_Server.py"/>
+  <node name="V_Odometry_server" pkg="visual_odometry" type="V_Odometry_Server.py"/>
+  <node name="turtlebotOdom_server" pkg="visual_odometry" type="turtlebotOdom_Server.py"/>
+  <node name="combinedOdom_server" pkg="visual_odometry" type="combinedOdom_Server.py"/>
+
+  <!-- Start up applications -->
+  <node name="live_play" pkg="visual_odometry" type="displayMapLive.py" output="screen"/>
+</launch>

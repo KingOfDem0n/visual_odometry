@@ -17,7 +17,7 @@ lk_params = dict(winSize=(21, 21),
                            cv.TERM_CRITERIA_COUNT, 20, 0.03)) # Change 20 to 100
 
 # TODO: Adaptive parameters
-ransacPnP_params = dict(useExtrinsicGuess=True,
+ransacPnP_params = dict(useExtrinsicGuess=False,
                         iterationsCount=250,
                         reprojectionError=1,
                         confidence=0.999,
@@ -134,7 +134,7 @@ class Stereo(object):
         self.prevFrameL = grayL.copy()
         self.prevPointCloud = pointCloud
 
-        return point3D, point2D
+        return point3D, point2D, grayL
 
     def saveNewKeyPoints(self, frame=None):
         point3D, point2D, _ = extract_keypoints_ros(detection_method, frame=frame)
