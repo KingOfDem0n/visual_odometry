@@ -50,6 +50,44 @@ def rotate(deg, pub):
 
     stop(pub)
 
+def curve(pub):
+    cmd = Twist()
+    cmd.linear.x = 0.2
+    cmd.angular.z = 0.5
+
+    duration = rospy.Duration.from_sec((math.pi/(2.0*0.5))*1.9)
+    pub.publish(cmd)
+    rospy.sleep(duration)
+
+    stop(pub)
+
+def roundBox(pub):
+    forward(0.5, pub)
+    rospy.sleep(1)
+    curve(pub)
+    rospy.sleep(1)
+
+    forward(0.5, pub)
+    rospy.sleep(1)
+    curve(pub)
+    rospy.sleep(1)
+
+    forward(0.5, pub)
+    rospy.sleep(1)
+    curve(pub)
+    rospy.sleep(1)
+
+    forward(0.5, pub)
+    rospy.sleep(1)
+    curve(pub)
+    rospy.sleep(1)
+
+def circle(pub):
+    curve(pub)
+    curve(pub)
+    curve(pub)
+    curve(pub)
+
 def boxMovement(pub):
     forward(0.5, pub)
     rospy.sleep(1)
