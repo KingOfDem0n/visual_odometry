@@ -27,7 +27,11 @@ def convert(R, t):
     return (row, pitch, yaw), t
 
 def callback(msg):
-    global truth_x, truth_y, est_x, est_y, gray
+    global truth_x, truth_y, est_x, est_y, gray, count
+
+    # if count % 5 != 0:
+    #     count += 1
+    #     return
 
     R_matrix, t, gray = stereo.nextFrame()
     R_rpy, t = convert(R_matrix, t)
@@ -39,8 +43,10 @@ def callback(msg):
     est_y.append(t[1])
     truth_x.append(msg.pose.pose.position.x)
     truth_y.append(msg.pose.pose.position.y)
+    count += 1
 
 if __name__ == "__main__":
+    count = 0
     gray = None
     stereo = Stereo()
     _,_, gray = stereo.initialize()
@@ -60,11 +66,16 @@ if __name__ == "__main__":
     rospy.init_node("Live_2D_Map")
     rospy.Subscriber("/odom", Odometry, callback)
 
+    # rospy.spin()
+
     while(True):
-        if(len(est_x) == len(est_y) and len(truth_x) == len(truth_y)):
-            position_axes.scatter(est_x, est_y, c="blue", s=10)
-            position_axes.scatter(truth_x, truth_y, c="red", s=10)
+        # if(len(est_x) == len(est_y) and len(truth_x) == len(truth_y)):
+        #     try:
+        #         position_axes.scatter(est_x, est_y, c="blue", s=10)
+        #         position_axes.scatter(truth_x, truth_y, c="red", s=10)
+        #     except:
+        #         pass
 
         cv.imshow("Frame", gray)
         cv.waitKey(1)
-        plt.pause(0.01)
+        # plt.pause(0.01)

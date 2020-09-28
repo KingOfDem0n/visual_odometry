@@ -12,7 +12,7 @@ def stop(pub):
     cmd = Twist()
     pub.publish(cmd)
 
-def forward(x, pub):
+def forward(x, pub, end_stop=True):
     cmd = Twist()
     cmd.linear.x = 0.2
 
@@ -26,9 +26,10 @@ def forward(x, pub):
     #     time = rospy.Time.now()
     #     rate.sleep()
 
-    stop(pub)
+    if end_stop:
+        stop(pub)
 
-def rotate(deg, pub):
+def rotate(deg, pub, end_stop=True):
     cmd = Twist()
     if deg > 0:
         cmd.angular.z = 0.5
@@ -48,18 +49,20 @@ def rotate(deg, pub):
     #     time = rospy.Time.now()
     #     rate.sleep()
 
-    stop(pub)
+    if end_stop:
+        stop(pub)
 
-def curve(pub):
+def curve(pub, end_stop=True):
     cmd = Twist()
     cmd.linear.x = 0.2
-    cmd.angular.z = 0.5
+    cmd.angular.z = 0.4
 
-    duration = rospy.Duration.from_sec((math.pi/(2.0*0.5))*1.9)
+    duration = rospy.Duration.from_sec(((math.pi/2.0)/cmd.angular.z)*1.4)
     pub.publish(cmd)
     rospy.sleep(duration)
 
-    stop(pub)
+    if end_stop:
+        stop(pub)
 
 def roundBox(pub):
     forward(0.5, pub)
@@ -83,10 +86,15 @@ def roundBox(pub):
     rospy.sleep(1)
 
 def circle(pub):
-    curve(pub)
-    curve(pub)
-    curve(pub)
-    curve(pub)
+    cmd = Twist()
+    cmd.linear.x = 0.2
+    cmd.angular.z = 0.4
+
+    duration = rospy.Duration.from_sec(((math.pi/2.0)/cmd.angular.z)*5)
+    pub.publish(cmd)
+    rospy.sleep(duration)
+
+    stop(pub)
 
 def boxMovement(pub):
     forward(0.5, pub)
@@ -168,7 +176,10 @@ if __name__ == "__main__":
     rospy.sleep(5.)
     # forward(0.5, pub)
     # rotate(-90, pub)
-    boxMovement(pub)
+    # curve(pub)
+    # boxMovement(pub)
     # plusMovement(pub)
+    # roundBox(pub)
+    circle(pub)
 
     done.publish(Empty())

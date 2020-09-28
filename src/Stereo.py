@@ -1,4 +1,5 @@
 import numpy as np
+import util
 from math import sin, cos
 import math
 import cv2 as cv
@@ -121,11 +122,13 @@ class Stereo(object):
 
         self.keyPoint = {"2D": np.array([]),
                          "3D": np.array([])}
-        self.prevInvTransform = np.hstack((np.eye(3), np.ones((3, 1))))
+        self.prevInvTransform = np.hstack((np.eye(3), np.zeros((3, 1))))
         self.prevFrameL = None
         self.prevPointCloud = None
         self.prevState = {"2D": np.array([]),
                           "3D": np.array([])}
+
+        self.yaw = 0
 
     def initialize(self, frame=None):
         point3D, point2D, grayL, pointCloud = extract_keypoints_ros(detection_method, frame=frame)
@@ -199,8 +202,6 @@ class Stereo(object):
 
         p_prev = p_prev.astype(np.float32)
 
-        #p_prev, p_cur, P = self.featureTracking(curFrame, p_prev, P)
-
         p_cur, status, err = cv.calcOpticalFlowPyrLK(self.prevFrameL, curFrame, p_prev, None, **lk_params)
         p_cur = p_cur[status.ravel() == 1]
         p_prev = p_prev[status.ravel() == 1]
@@ -214,8 +215,6 @@ class Stereo(object):
         p_prev = p_prev[d < 1]
 
         if p_cur.shape[0] < 50:
-            # P = self.keyPoint["3D"].copy()
-            # p_prev = self.keyPoint["2D"].copy()
             p_prev, P = self.getNewKeyPoints(method=detection_method)
             P = np.vstack((P.T, np.ones((1, P.shape[0]))))
             P = self.prevInvTransform.dot(P).T
@@ -248,15 +247,23 @@ class Stereo(object):
                 P = P[inliers]
             else:
                 print("No inliers passes")
-                inliers = np.array([])
-                p_prev = np.array([])
-                p_cur = np.array([])
-                P = np.array([])
+                R = self.prevInvTransform[:,:3].copy()
+                t = self.prevInvTransform[:,3].copy()
+                inv_transform = self.prevInvTransform.copy()
         else:
             R = self.prevInvTransform[:,:3].copy()
             t = self.prevInvTransform[:,3].copy()
             inv_transform = self.prevInvTransform.copy()
             print("Skipped frame")
+
+        # scale = np.sqrt(np.sum((t.reshape(-1) - self.prevInvTransform[:, 3].reshape(-1))**2))
+        # print("Current rotation: {}".format(yaw[0]))
+        # print("Scale: {}".format(scale))
+
+        # _P = np.vstack((P.T, np.ones((1, P.shape[0]))))
+        # P1 = self.prevInvTransform.dot(_P).T
+        # P2 = inv_transform.dot(_P).T
+        # util.onePointHistogram(P1, P2, self.K)
 
         # Update previous frame and new state
         self.prevInvTransform = inv_transform.copy()
