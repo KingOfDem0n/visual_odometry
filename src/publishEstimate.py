@@ -63,7 +63,7 @@ def convert(R, t):
 if __name__ == "__main__":
     rospy.init_node('VO_Estimate')
     pub = rospy.Publisher('/VO_estimate', Odometry, queue_size=1)
-    image_pub = rospy.Publisher('/whatIsee', Image, queue_size=1)
+    # image_pub = rospy.Publisher('/whatIsee', Image, queue_size=1)
     rate = rospy.Rate(25)
     bridge = CvBridge()
     odom = Odometry()
@@ -75,5 +75,5 @@ if __name__ == "__main__":
     while not rospy.is_shutdown():
         updatePose(stereo)
         pub.publish(odom)
-        image_pub.publish(image)
+        # image_pub.publish(image)
         rate.sleep()

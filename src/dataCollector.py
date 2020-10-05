@@ -9,14 +9,46 @@ import cv2 as cv
 from cv_bridge import CvBridge
 
 import rospy
-from visual_odometry.srv import getRealSenseOdom
-from visual_odometry.srv import V_Odometry
-from visual_odometry.srv import turtlebotOdom
-from visual_odometry.srv import combinedOdom
+# from visual_odometry.srv import getRealSenseOdom
+# from visual_odometry.srv import V_Odometry
+# from visual_odometry.srv import turtlebotOdom
+# from visual_odometry.srv import combinedOdom
 from visual_odometry.srv import getImage
 from std_msgs.msg import Empty
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 from tf.transformations import euler_from_quaternion
+
+_T265Odom = Odometry()
+_turtleOdom = Odometry()
+_estOdom = Odometry()
+_combinedOdom = PoseWithCovarianceStamped()
+
+def Stop(msg):
+    global flag
+
+    flag = False
+
+def callback_T265(msg):
+    global _T265Odom
+
+    _T265Odom = msg
+
+def callback_VO(msg):
+    global _estOdom
+
+    _estOdom = msg
+
+def callback_odom(msg):
+    global _turtleOdom
+
+    _turtleOdom = msg
+
+def callback_combined(msg):
+    global _combinedOdom
+
+    _combinedOdom = msg
 
 class dataCollector(object):
     def __init__(self):
@@ -30,37 +62,37 @@ class dataCollector(object):
 
         self.imageCount = 0
 
-    def _getTurtlebotPose(self):
-        rospy.wait_for_service('turtlebotOdom')
-        try:
-            server = rospy.ServiceProxy('turtlebotOdom', turtlebotOdom)
-            return server().turtlebotOdom
-        except rospy.ServiceException as e:
-            print("Service call failed: %s" % e)
-
-    def _getT265Pose(self):
-        rospy.wait_for_service('getRealSenseOdom')
-        try:
-            server = rospy.ServiceProxy('getRealSenseOdom', getRealSenseOdom)
-            return server().T265Odom
-        except rospy.ServiceException as e:
-            print("Service call failed: %s"%e)
-
-    def _getEstimatePose(self):
-        rospy.wait_for_service('V_Odometry')
-        try:
-            server = rospy.ServiceProxy('V_Odometry', V_Odometry)
-            return server().estimate
-        except rospy.ServiceException as e:
-            print("Service call failed: %s" % e)
-
-    def _getCombinedPose(self):
-        rospy.wait_for_service('combinedOdom')
-        try:
-            server = rospy.ServiceProxy('combinedOdom', combinedOdom)
-            return server().combined_odom
-        except rospy.ServiceException as e:
-            print("Service call failed: %s" % e)
+    # def _getTurtlebotPose(self):
+    #     rospy.wait_for_service('turtlebotOdom')
+    #     try:
+    #         server = rospy.ServiceProxy('turtlebotOdom', turtlebotOdom)
+    #         return server().turtlebotOdom
+    #     except rospy.ServiceException as e:
+    #         print("Service call failed: %s" % e)
+    #
+    # def _getT265Pose(self):
+    #     rospy.wait_for_service('getRealSenseOdom')
+    #     try:
+    #         server = rospy.ServiceProxy('getRealSenseOdom', getRealSenseOdom)
+    #         return server().T265Odom
+    #     except rospy.ServiceException as e:
+    #         print("Service call failed: %s"%e)
+    #
+    # def _getEstimatePose(self):
+    #     rospy.wait_for_service('V_Odometry')
+    #     try:
+    #         server = rospy.ServiceProxy('V_Odometry', V_Odometry)
+    #         return server().estimate
+    #     except rospy.ServiceException as e:
+    #         print("Service call failed: %s" % e)
+    #
+    # def _getCombinedPose(self):
+    #     rospy.wait_for_service('combinedOdom')
+    #     try:
+    #         server = rospy.ServiceProxy('combinedOdom', combinedOdom)
+    #         return server().combined_odom
+    #     except rospy.ServiceException as e:
+    #         print("Service call failed: %s" % e)
 
     def _getImage(self):
         rospy.wait_for_service('imageGrabber')
@@ -104,22 +136,22 @@ class dataCollector(object):
 
         return np.array([time_lapse, x, y, z, rpy[0], rpy[1], rpy[2], deg_yaw])
 
-    def collect(self, saveFrames=False):
-        _T265Odom = self._getT265Pose()
-        _turtleOdom = self._getTurtlebotPose()
-        _estOdom = self._getEstimatePose()
-        _combinedOdom = self._getCombinedPose()
+    def collect(self, odoms, saveFrames=False):
+        # _T265Odom = self._getT265Pose()
+        # _turtleOdom = self._getTurtlebotPose()
+        # _estOdom = self._getEstimatePose()
+        # _combinedOdom = self._getCombinedPose()
 
-        upacked = self.unpackOdometryMsg(_T265Odom, sensor="T")
+        upacked = self.unpackOdometryMsg(odoms[0], sensor="T")
         self.T265Odom = np.vstack((self.T265Odom, upacked))
 
-        upacked = self.unpackOdometryMsg(_turtleOdom, sensor="t")
+        upacked = self.unpackOdometryMsg(odoms[1], sensor="t")
         self.turtleOdom = np.vstack((self.turtleOdom, upacked))
 
-        upacked = self.unpackOdometryMsg(_estOdom, sensor="C")
+        upacked = self.unpackOdometryMsg(odoms[2], sensor="C")
         self.estOdom = np.vstack((self.estOdom, upacked))
 
-        upacked = self.unpackOdometryMsg(_combinedOdom, sensor="c")
+        upacked = self.unpackOdometryMsg(odoms[3], sensor="c")
         self.combinedOdom = np.vstack((self.combinedOdom, upacked))
 
         if saveFrames:
@@ -137,22 +169,21 @@ class dataCollector(object):
 
         df.to_excel(file, header=self.header, index=False)
 
-def Stop(msg):
-    global flag
-
-    flag = False
-
 if __name__ == "__main__":
     rospy.init_node('data_Collection')
     rospy.Subscriber("/done", Empty, Stop)
-    # rospy.sleep(1.)
+    rospy.Subscriber("/camera/odom/sample", Odometry, callback_T265)
+    rospy.Subscriber("/VO_estimate", Odometry, callback_VO)
+    rospy.Subscriber("/odom", Odometry, callback_odom)
+    rospy.Subscriber("/robot_pose_ekf/odom_combined", PoseWithCovarianceStamped, callback_combined)
 
     flag = True
     dataset = dataCollector()
     rate = rospy.Rate(10)
 
     while flag and not rospy.is_shutdown():
-        dataset.collect()
+        odoms = [_T265Odom, _turtleOdom, _estOdom, _combinedOdom]
+        dataset.collect(odoms)
         rate.sleep()
 
     date = datetime.datetime.now()

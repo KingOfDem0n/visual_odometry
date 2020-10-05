@@ -25,15 +25,13 @@ ransacPnP_params = dict(useExtrinsicGuess=False,
                         flags=cv.SOLVEPNP_ITERATIVE) # SOLVEPNP_ITERATIVE, SOLVEPNP_P3P, SOLVEPNP_EPNP, SOLVEPNP_DLS
 
 detection_method = "SOFT"
+server = None
 
-def getImages():
-    # rospy.loginfo("Waiting for imageGrabber server...")
-    rospy.wait_for_service('imageGrabber')
-    try:
-        server = rospy.ServiceProxy('imageGrabber', getImage)
-        return server()
-    except rospy.ServiceException as e:
-        print("Service call failed: %s"%e)
+rospy.wait_for_service('imageGrabber')
+try:
+    server = rospy.ServiceProxy('imageGrabber', getImage)
+except rospy.ServiceException as e:
+    print("Service call failed: %s"%e)
 
 def efficientNMS(img, r=30):
     fail_flag = False
@@ -72,9 +70,9 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
 
     if frame is None:
         bridge = CvBridge()
-        data = getImages()
+        data = server()
         while len(data.rgb.data) == 0 or len(data.point.data) == 0:
-            data = getImages()
+            data = server()
         rgb = bridge.imgmsg_to_cv2(data.rgb, desired_encoding='bgr8')
         gray = cv.cvtColor(rgb, cv.COLOR_BGR2GRAY)
     else:
