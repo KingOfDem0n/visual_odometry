@@ -1,5 +1,4 @@
 import numpy as np
-import util
 from math import sin, cos
 import math
 import cv2 as cv
@@ -18,11 +17,22 @@ lk_params = dict(winSize=(21, 21),
                            cv.TERM_CRITERIA_COUNT, 20, 0.03)) # Change 20 to 100
 
 # TODO: Adaptive parameters
-ransacPnP_params = dict(useExtrinsicGuess=False,
+ransacPnP_params = dict(useExtrinsicGuess=True,
                         iterationsCount=250,
                         reprojectionError=1,
                         confidence=0.999,
                         flags=cv.SOLVEPNP_ITERATIVE) # SOLVEPNP_ITERATIVE, SOLVEPNP_P3P, SOLVEPNP_EPNP, SOLVEPNP_DLS
+
+blob_kernel = np.array([[-1, -1, -1, -1, -1],
+                        [-1, 1, 1, 1, -1],
+                        [-1, 1, 8, 1, -1],
+                        [-1, 1, 1, 1, -1],
+                        [-1, -1, -1, -1, -1]])
+corner_kernel = np.array([[-1, -1, 0, 1, 1],
+                         [-1, -1, 0, 1, 1],
+                         [0, 0, 0, 0, 0],
+                         [1, 1, 0, -1, -1],
+                         [1, 1, 0, -1, -1]])
 
 detection_method = "SOFT"
 server = None
@@ -61,7 +71,7 @@ def efficientNMS(img, r=30):
     return np.array(pts)
 
 def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
-    assert method in ["SURF", "SOFT"], "Incorrect keypoint extraction method passed in"
+    assert method in ["SURF", "SOFT", "Harris"], "Incorrect keypoint extraction method passed in"
 
     data = None
     gray = None
@@ -78,25 +88,12 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
     else:
         gray = cv.cvtColor(frame, cv.COLOR_RGB2GRAY)
 
-    # gray = gray[60:,:]
-
     if not justFrame:
         if method == "SURF":
             detector = cv.xfeatures2d.SURF_create(400)
             kps = detector.detect(gray, None)
             point2D = [(int(round(x.pt[0])), int(round(x.pt[1]))) for x in kps]
         elif method == "SOFT":
-            blob_kernel = np.array([[-1, -1, -1, -1, -1],
-                                    [-1, 1, 1, 1, -1],
-                                    [-1, 1, 8, 1, -1],
-                                    [-1, 1, 1, 1, -1],
-                                    [-1, -1, -1, -1, -1]])
-            corner_kernel = np.array([[-1, -1, 0, 1, 1],
-                                     [-1, -1, 0, 1, 1],
-                                     [0, 0, 0, 0, 0],
-                                     [1, 1, 0, -1, -1],
-                                     [1, 1, 0, -1, -1]])
-
             blob_mask = cv.filter2D(gray, -1, blob_kernel)
             corner_mask = cv.filter2D(gray, -1, corner_kernel)
 
@@ -104,6 +101,10 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
             corner_pts = efficientNMS(corner_mask, 30)
 
             point2D = np.vstack((blob_pts, corner_pts)).tolist()
+        elif method == 'Harris':
+            harris = cv.cornerHarris(gray, 5, 3, 0.04)
+
+            point2D = efficientNMS(harris, 30).tolist()
 
         point3D = np.array(list(pc2.read_points(data.point, uvs=point2D)))
         point2D = np.array(point2D)
@@ -113,20 +114,20 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
     return point3D, point2D, gray, data.point
 
 class Stereo(object):
-    def __init__(self):
+    def __init__(self, t_threshold=1.0, R_threshold=0.5):
+        self.t_threshold = t_threshold
+        self.R_threshold = R_threshold
         self.K = np.array([[570.3405151367188, 0.0, 314.5],
                            [0.0, 570.3405151367188, 235.5], # 235.5, 175.5
                            [0.0, 0.0, 1.0]], dtype=np.float32)
 
-        self.keyPoint = {"2D": np.array([]),
-                         "3D": np.array([])}
         self.prevInvTransform = np.hstack((np.eye(3), np.zeros((3, 1))))
         self.prevFrameL = None
         self.prevPointCloud = None
         self.prevState = {"2D": np.array([]),
                           "3D": np.array([])}
 
-        self.yaw = 0
+        self.failed = False
 
     def initialize(self, frame=None):
         point3D, point2D, grayL, pointCloud = extract_keypoints_ros(detection_method, frame=frame)
@@ -137,33 +138,16 @@ class Stereo(object):
 
         return point3D, point2D, grayL
 
-    def saveNewKeyPoints(self, frame=None):
-        point3D, point2D, _ = extract_keypoints_ros(detection_method, frame=frame)
-        self.keyPoint["2D"] = point2D.copy()
-        self.keyPoint["3D"] = point3D.copy()
-
     def getNewKeyPoints(self, method="SURF"):
-        assert method in ["SURF", "SOFT"], "Incorrect keypoint extraction method passed in"
+        assert method in ["SURF", "SOFT", "Harris"], "Incorrect keypoint extraction method passed in"
 
         point2D = None
-        point3D = None
 
         if method == "SURF":
             detector = cv.xfeatures2d.SURF_create(400)
             kps = detector.detect(self.prevFrameL, None)
             point2D = [(int(round(x.pt[0])), int(round(x.pt[1]))) for x in kps]
         elif method == "SOFT":
-            blob_kernel = np.array([[-1, -1, -1, -1, -1],
-                                    [-1, 1, 1, 1, -1],
-                                    [-1, 1, 8, 1, -1],
-                                    [-1, 1, 1, 1, -1],
-                                    [-1, -1, -1, -1, -1]])
-            corner_kernel = np.array([[-1, -1, 0, 1, 1],
-                                     [-1, -1, 0, 1, 1],
-                                     [0, 0, 0, 0, 0],
-                                     [1, 1, 0, -1, -1],
-                                     [1, 1, 0, -1, -1]])
-
             blob_mask = cv.filter2D(self.prevFrameL, -1, blob_kernel)
             corner_mask = cv.filter2D(self.prevFrameL, -1, corner_kernel)
 
@@ -171,6 +155,9 @@ class Stereo(object):
             corner_pts = efficientNMS(corner_mask, 30)
 
             point2D = np.vstack((blob_pts, corner_pts)).tolist()
+        elif method == 'Harris':
+            harris = cv.cornerHarris(self.prevFrameL, 5, 3, 0.04)
+            point2D = efficientNMS(harris, 30).tolist()
 
         point3D = np.array(list(pc2.read_points(self.prevPointCloud, uvs=point2D)))
         point2D = np.array(point2D)
@@ -178,98 +165,85 @@ class Stereo(object):
         return point2D, point3D
 
     def featureTracking(self, curFrame, p_prev, P):
+        _p_prev = p_prev.copy()
+        _P = P.copy()
         p_cur, status, err = cv.calcOpticalFlowPyrLK(self.prevFrameL, curFrame, p_prev, None, **lk_params)
         p_cur = p_cur[status.ravel() == 1]
-        p_prev = p_prev[status.ravel() == 1]
-        P = P[status.ravel() == 1]
+        _p_prev = _p_prev[status.ravel() == 1]
+        _P = _P[status.ravel() == 1]
         p_prev_r, _, _ = cv.calcOpticalFlowPyrLK(curFrame, self.prevFrameL, p_cur, None, **lk_params)
 
         # Filter out occluded point
         d = abs(p_prev - p_prev_r).reshape(-1, 2).max(-1)
-        P = P[d < 1]
+        _P = _P[d < 1]
         p_cur = p_cur[d < 1]
-        p_prev = p_prev[d < 1]
+        _p_prev = _p_prev[d < 1]
 
-        return p_prev, p_cur, P
+        return p_cur, _p_prev, _P
 
     def nextFrame(self, frame=None):
         _, _, curFrame, pointCloud = extract_keypoints_ros(detection_method, frame=frame, justFrame=True)
-
         p_prev = self.prevState["2D"]
         P = self.prevState["3D"]
-
         p_prev = p_prev.astype(np.float32)
 
-        p_cur, status, err = cv.calcOpticalFlowPyrLK(self.prevFrameL, curFrame, p_prev, None, **lk_params)
-        p_cur = p_cur[status.ravel() == 1]
-        p_prev = p_prev[status.ravel() == 1]
-        P = P[status.ravel() == 1]
-        p_prev_r, _, _ = cv.calcOpticalFlowPyrLK(curFrame, self.prevFrameL, p_cur, None, **lk_params)
-
-        # Filter out occluded point
-        d = abs(p_prev - p_prev_r).reshape(-1, 2).max(-1)
-        P = P[d < 1]
-        p_cur = p_cur[d < 1]
-        p_prev = p_prev[d < 1]
-
-        if p_cur.shape[0] < 50:
+        # Re-acquiring key points or keep tracking
+        if p_prev.shape[0] < 50:
             p_prev, P = self.getNewKeyPoints(method=detection_method)
             P = np.vstack((P.T, np.ones((1, P.shape[0]))))
             P = self.prevInvTransform.dot(P).T
             p_prev = p_prev.astype(np.float32)
 
-            # p_prev, p_cur, P = self.featureTracking(curFrame, p_prev, P)
+            p_cur, p_prev, P = self.featureTracking(curFrame, p_prev, P)
+        else:
+            p_cur, p_prev, P = self.featureTracking(curFrame, p_prev, P)
 
-            p_cur, status, err = cv.calcOpticalFlowPyrLK(self.prevFrameL, curFrame, p_prev, None, **lk_params)
-            p_cur = p_cur[status.ravel() == 1]
-            p_prev = p_prev[status.ravel() == 1]
-            P = P[status.ravel() == 1]
-            p_prev_r, _, _ = cv.calcOpticalFlowPyrLK(curFrame, self.prevFrameL, p_cur, None, **lk_params)
-
-            # Filter out occluded point
-            d = abs(p_prev - p_prev_r).reshape(-1, 2).max(-1)
-            P = P[d < 1]
-            p_cur = p_cur[d < 1]
-            p_prev = p_prev[d < 1]
-
+        inv_transform = None
         if p_cur.shape[0] > 10:
-            _, _R, _t, inliers = cv.solvePnPRansac(P, p_cur, self.K, None, **ransacPnP_params)
+            prev_R = self.prevInvTransform[:,:3].copy()
+            prev_t = self.prevInvTransform[:,3].copy()
+            _, _R, _t, inliers = cv.solvePnPRansac(P, p_cur, self.K, None, prev_R, prev_t, **ransacPnP_params)
             R, _ = cv.Rodrigues(_R)
             t = -R.T.dot(_t)
-            inv_transform = np.hstack((R.T, t.reshape((3, 1))))
 
             if inliers is not None:
                 inliers = inliers.squeeze()
-                p_prev = p_prev[inliers]
                 p_cur = p_cur[inliers]
                 P = P[inliers]
+                inv_transform = np.hstack((R.T, t.reshape((3, 1))))
             else:
-                print("No inliers passes")
-                R = self.prevInvTransform[:,:3].copy()
-                t = self.prevInvTransform[:,3].copy()
-                inv_transform = self.prevInvTransform.copy()
+                print("Pose can not be determined")
+                self.failed = True
         else:
-            R = self.prevInvTransform[:,:3].copy()
-            t = self.prevInvTransform[:,3].copy()
+            print("Too few points")
+            self.failed = True
+
+        # Check for impossible transformation
+        if not self.failed:
+            prev_yaw = np.arctan2(self.prevInvTransform[1,0],self.prevInvTransform[0,0])
+            current_yaw = np.arctan2(inv_transform[1,0],inv_transform[0,0])
+            tran_diff = np.sqrt(np.sum((inv_transform[:, :3] - self.prevInvTransform[:, :3])**2))
+            yaw_diff = np.abs(prev_yaw - current_yaw)
+            if tran_diff >= self.t_threshold or yaw_diff >= self.R_threshold:
+                print("Impossible transition")
+                self.failed = True
+
+        # In case of failure, use the last pose instead
+        if self.failed:
+            R = self.prevInvTransform[:, :3].copy()
+            t = self.prevInvTransform[:, 3].copy()
             inv_transform = self.prevInvTransform.copy()
-            print("Skipped frame")
-
-        # scale = np.sqrt(np.sum((t.reshape(-1) - self.prevInvTransform[:, 3].reshape(-1))**2))
-        # print("Current rotation: {}".format(yaw[0]))
-        # print("Scale: {}".format(scale))
-
-        # _P = np.vstack((P.T, np.ones((1, P.shape[0]))))
-        # P1 = self.prevInvTransform.dot(_P).T
-        # P2 = inv_transform.dot(_P).T
-        # util.onePointHistogram(P1, P2, self.K)
 
         # Update previous frame and new state
         self.prevInvTransform = inv_transform.copy()
-        self.prevFrameL = curFrame.copy()
-        self.prevPointCloud = pointCloud
-        self.prevState["2D"] = p_cur.copy()
-        self.prevState["3D"] = P.copy()
-
-        # self.saveNewKeyPoints(frame=curFrame)
+        # Reinitialized in case of failure
+        if not self.failed:
+            self.prevFrameL = curFrame.copy()
+            self.prevPointCloud = pointCloud
+            self.prevState["2D"] = p_cur.copy()
+            self.prevState["3D"] = P.copy()
+        else:
+            self.initialize()
+            self.failed = False
 
         return R.T, t, curFrame
