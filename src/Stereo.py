@@ -16,7 +16,6 @@ lk_params = dict(winSize=(21, 21),
                  criteria=(cv.TERM_CRITERIA_EPS |
                            cv.TERM_CRITERIA_COUNT, 20, 0.03)) # Change 20 to 100
 
-# TODO: Adaptive parameters
 ransacPnP_params = dict(useExtrinsicGuess=True,
                         iterationsCount=250,
                         reprojectionError=1,
