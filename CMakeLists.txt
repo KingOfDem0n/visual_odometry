@@ -143,6 +143,10 @@ ${catkin_INCLUDE_DIRS}
 
 add_executable(controller src/controller.cpp)
 target_link_libraries(controller ${catkin_LIBRARIES})
+
+add_executable(closedLoopController src/closedLoopController.cpp)
+target_link_libraries(closedLoopController ${catkin_LIBRARIES})
+
 # add_dependencies(controller node_example_gencfg node_example_generate_messages_cpp)
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
