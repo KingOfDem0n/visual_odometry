@@ -18,6 +18,6 @@
   <node name="addCovariance" pkg="visual_odometry" type="addCovariance.py" output="screen"/>
   <node name="dataCollector" pkg="visual_odometry" type="dataCollector.py" if="$(arg collectData)" output="screen"/>
   <node name="VO_estimate" pkg="visual_odometry" type="publishEstimate.py" output="screen"/>
-  <node name="controller" pkg="visual_odometry" type="controller" output="screen"/>
+  <node name="controller" pkg="visual_odometry" type="closedLoopController" output="screen"/>
 
 </launch>

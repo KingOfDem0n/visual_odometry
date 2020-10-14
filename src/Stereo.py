@@ -16,11 +16,11 @@ lk_params = dict(winSize=(21, 21),
                  criteria=(cv.TERM_CRITERIA_EPS |
                            cv.TERM_CRITERIA_COUNT, 20, 0.03)) # Change 20 to 100
 
-ransacPnP_params = dict(useExtrinsicGuess=True,
+ransacPnP_params = dict(useExtrinsicGuess=False,
                         iterationsCount=250,
                         reprojectionError=1,
                         confidence=0.999,
-                        flags=cv.SOLVEPNP_ITERATIVE) # SOLVEPNP_ITERATIVE, SOLVEPNP_P3P, SOLVEPNP_EPNP, SOLVEPNP_DLS
+                        flags=cv.SOLVEPNP_P3P) # SOLVEPNP_ITERATIVE, SOLVEPNP_P3P, SOLVEPNP_EPNP, SOLVEPNP_DLS
 
 blob_kernel = np.array([[-1, -1, -1, -1, -1],
                         [-1, 1, 1, 1, -1],
@@ -113,7 +113,7 @@ def extract_keypoints_ros(method="SURF", frame=None, justFrame=False):
     return point3D, point2D, gray, data.point
 
 class Stereo(object):
-    def __init__(self, t_threshold=1.0, R_threshold=0.5):
+    def __init__(self, t_threshold=0.1, R_threshold=0.01):
         self.t_threshold = t_threshold
         self.R_threshold = R_threshold
         self.K = np.array([[570.3405151367188, 0.0, 314.5],
@@ -173,7 +173,7 @@ class Stereo(object):
         p_prev_r, _, _ = cv.calcOpticalFlowPyrLK(curFrame, self.prevFrameL, p_cur, None, **lk_params)
 
         # Filter out occluded point
-        d = abs(p_prev - p_prev_r).reshape(-1, 2).max(-1)
+        d = abs(_p_prev - p_prev_r).reshape(-1, 2).max(-1)
         _P = _P[d < 1]
         p_cur = p_cur[d < 1]
         _p_prev = _p_prev[d < 1]
