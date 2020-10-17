@@ -54,7 +54,7 @@ int main(int argc, char **argv){
     //ros::Duration(5.0).sleep();
 
     // Set the command below this line
-    move2goal(-1, 0);
+    move2pose(1,-1,90);
     stop();
     // Set the command above this line
 
@@ -79,7 +79,7 @@ void move2goal(float x_goal, float y_goal, float v_p, float w_p){
   ros::Rate loop_rate(LOOP_HZ);
   geometry_msgs::Twist cmd;
 
-  while(fabs(x_goal-cur_x) > 0.05 || fabs(y_goal-cur_y) > 0.05){
+  while(sqrt(pow(x_goal-cur_x, 2) + pow(y_goal-cur_y, 2)) > 0.05){
     ros::spinOnce();
     cmd.linear.x = v_p*sqrt(pow(x_goal-cur_x, 2) + pow(y_goal-cur_y, 2));
     cmd.angular.z = w_p*angDiff(atan2(y_goal-cur_y, x_goal-cur_x), cur_yaw);
@@ -98,25 +98,68 @@ void move2pose(float x_goal, float y_goal, float theta_goal, float k_rho, float 
   ros::spinOnce();
   theta_goal = theta_goal*M_PI/180.0; //Convert from deg to rad
   double rho, alpha, beta;
-  alpha = atan2(y_goal-cur_y, x_goal-cur_x) - cur_yaw;
+  double diff_x = cur_x-x_goal, diff_y = cur_y-y_goal;
+  double remaining;
+  alpha = atan2(-diff_y, -diff_x) - cur_yaw;
   int direction = 1;
 
-  if(alpha <= -M_PI/2.0 || alpha > M_PI/2.0) {direction = -1;}
-  else {direction = 1;}
+  // Decide if traveling backward
+  if(alpha < -M_PI/2.0 || alpha > M_PI/2.0) {direction = -1;}
 
-  while(fabs(x_goal-cur_x) > 0.05 || fabs(y_goal-cur_y) > 0.05 || fabs(theta_goal-cur_yaw) > 0.05){
+  while(sqrt(pow(diff_x, 2) + pow(diff_y, 2)) > 0.05){
+    //std::cout << "Diff: " << sqrt(pow(diff_x, 2) + pow(diff_y, 2)) << std::endl;
+    std::cout << "Angle: " << cur_yaw << std::endl;
     ros::spinOnce();
-    rho = sqrt(pow(x_goal-cur_x, 2) + pow(y_goal-cur_y, 2));
-    alpha = atan2(y_goal-cur_y, x_goal-cur_x) - cur_yaw;
-    beta = -cur_yaw - alpha + theta_goal;
+    diff_x = cur_x-x_goal;
+    diff_y = cur_y-y_goal;
+    rho = sqrt(pow(diff_x, 2) + pow(diff_y, 2));
 
-    cmd.linear.x = direction*(k_rho*rho);
-    cmd.angular.z = direction*(k_alpha*alpha + k_beta*beta)/fabs(cmd.linear.x);
-    if(fabs(cmd.angular.z)>0.5){cmd.angular.z = (cmd.angular.z/fabs(cmd.angular.z))*0.5;}
+    if(direction == -1){
+      //alpha = atan2(diff_y, diff_x) - cur_yaw;
+      //beta = -cur_yaw - alpha;
+      beta = -atan2(diff_y, diff_x);
+      alpha = -cur_yaw - beta;
+    }
+    else{
+      //alpha = atan2(-diff_y, -diff_x) - cur_yaw;
+      //beta = -cur_yaw - alpha;
+      beta = -atan2(-diff_y, -diff_x);
+      alpha = -cur_yaw - beta;
+    }
+    if(alpha > M_PI/2) {alpha = M_PI/2;}
+    if(alpha < -M_PI/2) {alpha = -M_PI/2;}
+
+    cmd.linear.x = direction*k_rho*rho;
+    cmd.angular.z = direction*(k_alpha*alpha + k_beta*(beta+theta_goal))/fabs(cmd.linear.x);
+    std::cout << cmd.angular.z << std::endl;
     pub_cmd_.publish(cmd);
     loop_rate.sleep();
   }
 
+}
+
+void followTrajectory(float x_goal, float y_goal, float followDist){
+  ros::Rate loop_rate(30);
+  geometry_msgs::Twist cmd;
+
+  // Update trajectory here somehow
+
+  ros::spinOnce();
+  double error = sqrt(pow(cur_x-x_goal, 2) + pow(cur_y-y_goal, 2)) - followDist;
+  double error_sum = 0, theta_star;
+
+  while(error > 0.05){
+    // Update trajectory here somehow
+    ros::spinOnce();
+    error = sqrt(pow(cur_x-x_goal, 2) + pow(cur_y-y_goal, 2)) - followDist;
+    error_sum += error;
+
+    cmd.linear.x = kv*error + ki*error_sum;
+    cmd.angular.z =kh*angDiff(atan2(y_goal-cur_y, x_goal-cur_x), cur_yaw);
+    //std::cout << cmd << std::endl;
+    pub_cmd_.publish(cmd);
+    loop_rate.sleep();
+  }
 }
 
 void stop(){
