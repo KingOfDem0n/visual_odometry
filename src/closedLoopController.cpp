@@ -33,7 +33,7 @@ void callback(const nav_msgs::Odometry::ConstPtr msg){
 
 double angDiff(double theta1, double theta2);
 void move2goal(float x_goal, float y_goal, float v_p=0.2, float w_p=1);
-void move2pose(float x_goal, float y_goal, float theta_goal, float k_rho=0.3, float k_alpha=0.5, float k_beta=-0.5);
+void move2pose(float x_goal, float y_goal, float theta_goal, float k_rho=0.2, float k_alpha=1, float k_beta=-0.5);
 void stop();
 void forward(double dist, bool end_stop=true);
 void rotate(double dist, bool end_stop=true);
@@ -54,7 +54,8 @@ int main(int argc, char **argv){
     //ros::Duration(5.0).sleep();
 
     // Set the command below this line
-    move2pose(1,-1,90);
+    move2pose(1,1,90);
+    // move2goal(-1,-1);
     stop();
     // Set the command above this line
 
@@ -106,9 +107,9 @@ void move2pose(float x_goal, float y_goal, float theta_goal, float k_rho, float 
   // Decide if traveling backward
   if(alpha < -M_PI/2.0 || alpha > M_PI/2.0) {direction = -1;}
 
-  while(sqrt(pow(diff_x, 2) + pow(diff_y, 2)) > 0.05){
-    //std::cout << "Diff: " << sqrt(pow(diff_x, 2) + pow(diff_y, 2)) << std::endl;
-    std::cout << "Angle: " << cur_yaw << std::endl;
+  while(sqrt(pow(diff_x, 2) + pow(diff_y, 2)) > 0.05 || fabs(angDiff(theta_goal, cur_yaw)) > 0.05){
+    std::cout << "Diff: " << sqrt(pow(diff_x, 2) + pow(diff_y, 2)) << std::endl;
+    std::cout << "Angle: " << fabs(angDiff(theta_goal, cur_yaw)) << std::endl;
     ros::spinOnce();
     diff_x = cur_x-x_goal;
     diff_y = cur_y-y_goal;
@@ -130,37 +131,37 @@ void move2pose(float x_goal, float y_goal, float theta_goal, float k_rho, float 
     if(alpha < -M_PI/2) {alpha = -M_PI/2;}
 
     cmd.linear.x = direction*k_rho*rho;
-    cmd.angular.z = direction*(k_alpha*alpha + k_beta*(beta+theta_goal))/fabs(cmd.linear.x);
-    std::cout << cmd.angular.z << std::endl;
+    cmd.angular.z = atan(direction*(k_alpha*alpha + k_beta*(beta+theta_goal)));
+
     pub_cmd_.publish(cmd);
     loop_rate.sleep();
   }
 
 }
 
-void followTrajectory(float x_goal, float y_goal, float followDist){
-  ros::Rate loop_rate(30);
-  geometry_msgs::Twist cmd;
-
-  // Update trajectory here somehow
-
-  ros::spinOnce();
-  double error = sqrt(pow(cur_x-x_goal, 2) + pow(cur_y-y_goal, 2)) - followDist;
-  double error_sum = 0, theta_star;
-
-  while(error > 0.05){
-    // Update trajectory here somehow
-    ros::spinOnce();
-    error = sqrt(pow(cur_x-x_goal, 2) + pow(cur_y-y_goal, 2)) - followDist;
-    error_sum += error;
-
-    cmd.linear.x = kv*error + ki*error_sum;
-    cmd.angular.z =kh*angDiff(atan2(y_goal-cur_y, x_goal-cur_x), cur_yaw);
-    //std::cout << cmd << std::endl;
-    pub_cmd_.publish(cmd);
-    loop_rate.sleep();
-  }
-}
+// void followTrajectory(float x_goal, float y_goal, float followDist){
+//   ros::Rate loop_rate(30);
+//   geometry_msgs::Twist cmd;
+//
+//   // Update trajectory here somehow
+//
+//   ros::spinOnce();
+//   double error = sqrt(pow(cur_x-x_goal, 2) + pow(cur_y-y_goal, 2)) - followDist;
+//   double error_sum = 0, theta_star;
+//
+//   while(error > 0.05){
+//     // Update trajectory here somehow
+//     ros::spinOnce();
+//     error = sqrt(pow(cur_x-x_goal, 2) + pow(cur_y-y_goal, 2)) - followDist;
+//     error_sum += error;
+//
+//     cmd.linear.x = kv*error + ki*error_sum;
+//     cmd.angular.z =kh*angDiff(atan2(y_goal-cur_y, x_goal-cur_x), cur_yaw);
+//     //std::cout << cmd << std::endl;
+//     pub_cmd_.publish(cmd);
+//     loop_rate.sleep();
+//   }
+// }
 
 void stop(){
   geometry_msgs::Twist cmd;
