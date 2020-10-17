@@ -54,7 +54,7 @@ int main(int argc, char **argv){
     //ros::Duration(5.0).sleep();
 
     // Set the command below this line
-    move2pose(1,1,90);
+    move2pose(-1,-1,90);
     // move2goal(-1,-1);
     stop();
     // Set the command above this line
@@ -131,7 +131,7 @@ void move2pose(float x_goal, float y_goal, float theta_goal, float k_rho, float 
     if(alpha < -M_PI/2) {alpha = -M_PI/2;}
 
     cmd.linear.x = direction*k_rho*rho;
-    cmd.angular.z = atan(direction*(k_alpha*alpha + k_beta*(beta+theta_goal)));
+    cmd.angular.z = atan(k_alpha*alpha + k_beta*(beta+theta_goal));
 
     pub_cmd_.publish(cmd);
     loop_rate.sleep();
